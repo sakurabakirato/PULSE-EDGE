@@ -1,11 +1,11 @@
 #pragma once
 
+#include <Windows.h>
+#include <d3d12.h>
 #include <math\Matrix4x4.h>
 #include <math\Vector2.h>
 #include <math\Vector3.h>
 #include <math\Vector4.h>
-#include <Windows.h>
-#include <d3d12.h>
 #include <string>
 #include <wrl.h>
 
@@ -26,7 +26,6 @@ public:
 		kExclusion, //!< 除外。(1 - Dest) * Src + (1 - Src) * Dest
 
 		kCountOfBlendMode,    //!< ブレンドモード数。指定はしない
-		kMultily = kMultiply, //!< スペルミス互換用
 	};
 
 public: // サブクラス
@@ -59,7 +58,7 @@ public: // 静的メンバ関数
 	/// 描画前処理
 	/// </summary>
 	/// <param name="cmdList">描画コマンドリスト</param>
-	static void PreDraw(ID3D12GraphicsCommandList* cmdList, BlendMode blendMode = BlendMode::kNormal);
+	static void PreDraw(ID3D12GraphicsCommandList* cmdList = nullptr, BlendMode blendMode = BlendMode::kNormal);
 
 	/// <summary>
 	/// 描画後処理
@@ -95,15 +94,6 @@ private: // 静的メンバ変数
 	static Matrix4x4 sMatProjection_;
 
 public: // メンバ関数
-	/// <summary>
-	/// コンストラクタ
-	/// </summary>
-	Sprite();
-	/// <summary>
-	/// コンストラクタ
-	/// </summary>
-	Sprite(uint32_t textureHandle, Vector2 position, Vector2 size, Vector4 color, Vector2 anchorpoint, bool isFlipX, bool isFlipY);
-
 	/// <summary>
 	/// 初期化
 	/// </summary>
@@ -223,6 +213,12 @@ private: // メンバ変数
 	D3D12_RESOURCE_DESC resourceDesc_;
 
 private: // メンバ関数
+	/// <summary>
+	/// コンストラクタ
+	/// </summary>
+	Sprite();
+	Sprite(uint32_t textureHandle, Vector2 position, Vector2 size, Vector4 color, Vector2 anchorpoint, bool isFlipX, bool isFlipY);
+
 	/// <summary>
 	/// 頂点データ転送
 	/// </summary>

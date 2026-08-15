@@ -76,20 +76,16 @@ void TitleScene::Update()
 
 	camera_.TransferMatrix();
 
-	upData->WorldTransformUpData(worldTransformTitle_);
+	upDate_->WorldTransformUpDate(worldTransformTitle_);
 
 	// アフィン変換～DirectXに転送(タイトル座標)
-	upData->WorldTransformUpData(worldTransformPlayer_);
+	upDate_->WorldTransformUpDate(worldTransformPlayer_);
 }
 
 void TitleScene::Draw() 
 {
 
-	DirectXCommon* dxCommon_ = DirectXCommon::GetInstance();
-	// コマンドリストの取得
-	ID3D12GraphicsCommandList* commandList = dxCommon_->GetCommandList();
-
-	Model::PreDraw(commandList);
+	Model::PreDraw();
 
 	modelTitle_->Draw(worldTransformTitle_, camera_);
 	modelPlayer_->Draw(worldTransformPlayer_, camera_);

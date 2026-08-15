@@ -13,82 +13,104 @@ class SpotLight {
 public: // サブクラス
 	// 定数バッファ用データ構造体
 	struct ConstBufferData {
-		Vector3 lightv;
-		float pad1;
-		Vector3 lightpos;
-		float pad2;
-		Vector3 lightcolor;
-		float pad3;
-		Vector3 lightatten;
-		float pad4;
-		Vector2 lightfactoranglecos;
-		unsigned int active;
-		float pad5;
+		Vector3 color;     // ライトの色(RGB)
+		float intensity;   // 輝度
+		Vector3 position;  // ライト座標
+		float radius;      // 最大距離
+		Vector3 direction; // ライト方向
+		float decay;       // 減衰率
+		Vector2 cosAngle;  // 角度減衰のコサイン (x:開始, y:終了)
+		unsigned int active; // 有効フラグ
+		float pad[1];
 	};
 
 public: // メンバ関数
 	/// <summary>
-	/// ライト方向をセット
+	/// 方向をセット
 	/// </summary>
-	/// <param name="lightdir">ライト方向</param>
-	void SetLightDir(const Vector3& lightdir);
+	/// <param name="direction">方向</param>
+	void SetDirection(const Vector3& direction);
 
 	/// <summary>
-	/// ライト方向を取得
+	/// 方向を取得
 	/// </summary>
-	/// <returns>ライト方向</returns>
-	inline const Vector3& GetLightDir() const { return lightDir_; }
+	/// <returns>方向</returns>
+	inline const Vector3& GetDirection() const { return direction_; }
 
 	/// <summary>
-	/// ライト座標をセット
+	/// 座標をセット
 	/// </summary>
-	/// <param name="lightpos">ライト座標</param>
-	inline void SetLightPos(const Vector3& lightpos) { this->lightPos_ = lightpos; }
+	/// <param name="position">座標</param>
+	inline void SetPosition(const Vector3& position) { this->position_ = position; }
 
 	/// <summary>
-	/// ライト座標を取得
+	/// 座標を取得
 	/// </summary>
-	/// <returns>ライト座標</returns>
-	inline const Vector3& GetLightPos() const { return lightPos_; }
+	/// <returns>座標</returns>
+	inline const Vector3& GetPosition() const { return position_; }
 
 	/// <summary>
-	/// ライト色をセット
+	/// 色をセット
 	/// </summary>
-	/// <param name="lightcolor">ライト色</param>
-	inline void SetLightColor(const Vector3& lightcolor) { this->lightColor_ = lightcolor; }
+	/// <param name="color">色</param>
+	inline void SetColor(const Vector3& color) { this->color_ = color; }
 
 	/// <summary>
-	/// ライト色を取得
+	/// 色を取得
 	/// </summary>
-	/// <returns>ライト色</returns>
-	inline const Vector3& GetLightColor() const { return lightColor_; }
+	/// <returns>色</returns>
+	inline const Vector3& GetColor() const { return color_; }
 
 	/// <summary>
-	/// ライト距離減衰係数をセット
+	/// 輝度をセット
 	/// </summary>
-	/// <param name="lightatten">ライト距離減衰係数</param>
-	inline void SetLightAtten(const Vector3& lightAtten) { this->lightAtten_ = lightAtten; }
+	/// <param name="intensity">輝度</param>
+	inline void SetIntensity(float intensity) { intensity_ = intensity; }
 
 	/// <summary>
-	/// ライト距離減衰係数を取得
+	/// 輝度を取得
 	/// </summary>
-	/// <returns>ライト距離減衰係数</returns>
-	inline const Vector3& GetLightAtten() const { return lightAtten_; }
+	/// <returns>輝度</returns>
+	inline float GetIntensity() const { return intensity_; }
 
 	/// <summary>
-	/// ライト減衰角度をセット
+	/// 半径をセット
 	/// </summary>
-	/// <param name="lightFactorAngle">x:減衰開始角度 y:減衰終了角度[radian]</param>
-	inline void SetLightFactorAngle(const Vector2& lightFactorAngle) {
-		this->lightFactorAngleCos_.x = std::cos(lightFactorAngle.x);
-		this->lightFactorAngleCos_.y = std::cos(lightFactorAngle.y);
+	/// <param name="radius">半径</param>
+	inline void SetRadius(float radius) { radius_ = radius; }
+
+	/// <summary>
+	/// 半径を取得
+	/// </summary>
+	/// <returns>半径</returns>
+	inline float GetRadius() const { return radius_; }
+
+	/// <summary>
+	/// 減衰率をセット
+	/// </summary>
+	/// <param name="decay">減衰率</param>
+	inline void SetDecay(float decay) { decay_ = decay; }
+
+	/// <summary>
+	/// 減衰率を取得
+	/// </summary>
+	/// <returns>減衰率</returns>
+	inline float GetDecay() const { return decay_; }
+
+	/// <summary>
+	/// 角度をセット
+	/// </summary>
+	/// <param name="cosAngle">x:減衰開始角度 y:減衰終了角度[radian]</param>
+	inline void SetCosAngle(const Vector2& angle) {
+		this->cosAngle_.x = std::cos(angle.x);
+		this->cosAngle_.y = std::cos(angle.y);
 	}
 
 	/// <summary>
-	/// ライト減衰角度を取得
+	/// 角度を取得
 	/// </summary>
-	/// <returns>ライト距離減衰係数</returns>
-	inline const Vector2& GetLightFactorAngleCos() const { return lightFactorAngleCos_; }
+	/// <returns>角度</returns>
+	inline const Vector2& GetCosAngle() const { return cosAngle_; }
 
 	/// <summary>
 	/// 有効フラグをセット
@@ -103,16 +125,20 @@ public: // メンバ関数
 	inline bool IsActive() const { return active_; }
 
 private: // メンバ変数
-	// ライト方向（単位ベクトル）
-	Vector3 lightDir_ = {1, 0, 0};
-	// ライト座標（ワールド座標系）
-	Vector3 lightPos_ = {0, 0, 0};
-	// ライト色
-	Vector3 lightColor_ = {1, 1, 1};
-	// ライト距離減衰係数
-	Vector3 lightAtten_ = {1.0f, 1.0f, 1.0f};
-	// ライト減衰角度
-	Vector2 lightFactorAngleCos_ = {0.2f, 0.5f};
+	// 色
+	Vector3 color_ = {1, 1, 1};
+	// 座標（ワールド座標系）
+	Vector3 position_ = {0, 0, 0};
+	// 方向（単位ベクトル）
+	Vector3 direction_ = {1, 0, 0};
+	// 輝度
+	float intensity_ = 1.0f;
+	// ライト力届く最大距離
+	float radius_ = 20.0f;
+	// 減衰率
+	float decay_ = 1.0f;
+	// 角度
+	Vector2 cosAngle_ = {0.2f, 0.5f};
 	// 有効フラグ
 	bool active_ = false;
 };

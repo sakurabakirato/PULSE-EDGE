@@ -1,8 +1,8 @@
-#include "UpData.h"
+#include "UpDate.h"
 
 using namespace KamataEngine;
 
-void UpData::WorldTransformUpData(WorldTransform& worldTransform) {
+void UpDate::WorldTransformUpDate(WorldTransform& worldTransform) {
 
 	// スケール、回転、平行移動を合成して行列を計算する
 	worldTransform.matWorld_ = MakeAffineMatrix(worldTransform.scale_, worldTransform.rotation_, worldTransform.translation_);

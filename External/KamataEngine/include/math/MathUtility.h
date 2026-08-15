@@ -9,7 +9,7 @@ namespace KamataEngine {
 
 namespace MathUtility {
 
-const float PI = 3.141592654f;
+const float kPI = 3.141592654f;
 
 // 単項演算子オーバーロード
 Vector2 operator+(const Vector2& v);

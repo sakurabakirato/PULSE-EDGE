@@ -1,7 +1,7 @@
 #pragma once
 
 #include "KamataEngine.h"
-#include "UpData.h"
+#include "UpDate.h"
 #include "Fade.h"
 
 using namespace KamataEngine;
@@ -36,7 +36,7 @@ private:
 	Model* modelPlayer_ = nullptr;
 	Model* modelTitle_ = nullptr;
 
-	UpData* upData = nullptr;
+	UpDate* upDate_ = nullptr;
 
 	// ワールド変換データ
 	WorldTransform worldTransform_;

@@ -22,6 +22,7 @@ public: // サブクラス
 		Vector3 specular; // スペキュラー係数
 		float alpha;      // アルファ
 		Vector3 uvScale;  // UVスケール
+		float wrap;       // ラップ係数
 		Vector3 uvOffset; // UVオフセット
 	};
 
@@ -33,24 +34,17 @@ public: // 静的メンバ関数
 	static std::unique_ptr<Material> Create();
 
 public:                            // メンバ変数
-	std::string name_;             // マテリアル名
+	std::string name;             // マテリアル名
 	Vector3 ambient_;              // アンビエント影響度
 	Vector3 diffuse_;              // ディフューズ影響度
 	Vector3 specular_;             // スペキュラー影響度
 	Vector3 uvScale_ = {1, 1, 1};  // UVスケール
 	Vector3 uvOffset_ = {0, 0, 0}; // UVオフセット
 	float alpha_;                  // アルファ
+	float wrap_;                   // ラップ係数
 	std::string textureFilename_;  // テクスチャファイル名
 
 public:
-	// コンストラクタ
-	Material() {
-		ambient_ = {0.3f, 0.3f, 0.3f};
-		diffuse_ = {0.8f, 0.8f, 0.8f};
-		specular_ = {0.0f, 0.0f, 0.0f};
-		alpha_ = 1.0f;
-	}
-
 	/// <summary>
 	/// 定数バッファの取得
 	/// </summary>
@@ -71,21 +65,21 @@ public:
 	/// グラフィックスコマンドのセット
 	/// </summary>
 	/// <param name="commandList">コマンドリスト</param>
-	/// <param name="rooParameterIndexMaterial">マテリアルのルートパラメータ番号</param>
-	/// <param name="rooParameterIndexTexture">テクスチャのルートパラメータ番号</param>
-	void SetGraphicsCommand(ID3D12GraphicsCommandList* commandList, UINT rooParameterIndexMaterial, UINT rooParameterIndexTexture);
+	/// <param name="rootParameterIndexMaterial">マテリアルのルートパラメータ番号</param>
+	/// <param name="rootParameterIndexTexture">テクスチャのルートパラメータ番号</param>
+	void SetGraphicsCommand(ID3D12GraphicsCommandList* commandList, UINT rootParameterIndexMaterial, UINT rootParameterIndexTexture);
 
 	/// <summary>
 	/// グラフィックスコマンドのセット（テクスチャ差し替え版）
 	/// </summary>
 	/// <param name="commandList">コマンドリスト</param>
-	/// <param name="rooParameterIndexMaterial">マテリアルのルートパラメータ番号</param>
-	/// <param name="rooParameterIndexTexture">テクスチャのルートパラメータ番号</param>
+	/// <param name="rootParameterIndexMaterial">マテリアルのルートパラメータ番号</param>
+	/// <param name="rootParameterIndexTexture">テクスチャのルートパラメータ番号</param>
 	/// <param name="textureHandle">差し替えるテクスチャハンドル</param>
-	void SetGraphicsCommand(ID3D12GraphicsCommandList* commandList, UINT rooParameterIndexMaterial, UINT rooParameterIndexTexture, uint32_t textureHandle);
+	void SetGraphicsCommand(ID3D12GraphicsCommandList* commandList, UINT rootParameterIndexMaterial, UINT rootParameterIndexTexture, uint32_t textureHandle);
 
 	// テクスチャハンドル
-	uint32_t GetTextureHadle() const { return textureHandle_; }
+	uint32_t GetTextureHandle() const { return textureHandle_; }
 
 private:
 	// 定数バッファ
@@ -96,6 +90,14 @@ private:
 	uint32_t textureHandle_ = 0;
 
 private:
+	// コンストラクタの外部呼び出しを禁止
+	Material() {
+		ambient_ = {0.3f, 0.3f, 0.3f};
+		diffuse_ = {0.7f, 0.7f, 0.7f};
+		specular_ = {0.5f, 0.5f, 0.5f};
+		alpha_ = 1.0f;
+		wrap_ = 0.5f;
+	}
 	/// <summary>
 	/// 初期化
 	/// </summary>

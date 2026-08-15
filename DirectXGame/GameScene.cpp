@@ -199,10 +199,11 @@ void GameScene::Update()
 	skydome_->Update();
 
 	//  自キャラの更新
-	player_->UpDate();
+	player_->Update();
 
-	for (Enemy* enemy : enemies_) {
-		enemy->UpDate();
+	for (Enemy* enemy : enemies_) 
+	{
+		enemy->Update();
 	}
 
 	ChangePhase();
@@ -246,9 +247,7 @@ void GameScene::Update()
 void GameScene::Draw() 
 {
 
-	DirectXCommon* dxCommon = DirectXCommon::GetInstance();
-
-	Model::PreDraw(dxCommon->GetCommandList());
+	Model::PreDraw();
 
 	// ブロックの描画
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) 

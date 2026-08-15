@@ -13,14 +13,14 @@ class CircleShadow {
 public: // サブクラス
 	// 定数バッファ用データ構造体
 	struct ConstBufferData {
-		Vector3 dir;
+		Vector3 direction; // 投影方向の逆ベクトル
 		float pad1;
-		Vector3 casterPos;
-		float distanceCasterLight;
-		Vector3 atten;
+		Vector3 position;  // キャスター座標
+		float distanceCasterLight; // キャスターとライトの距離
+		Vector3 atten;     // 距離減衰係数
 		float pad2;
-		Vector2 factorAngleCos;
-		unsigned int active;
+		Vector2 cosAngle;  // 減衰角度のコサイン (x:開始, y:終了)
+		unsigned int active; // 有効フラグ
 		float pad3;
 	};
 
@@ -28,26 +28,26 @@ public: // メンバ関数
 	/// <summary>
 	/// 方向をセット
 	/// </summary>
-	/// <param name="lightdir">方向</param>
-	void SetDir(const Vector3& dir);
+	/// <param name="direction">方向</param>
+	void SetDirection(const Vector3& direction);
 
 	/// <summary>
-	/// ライト方向を取得
+	/// 方向を取得
 	/// </summary>
-	/// <returns>ライト方向</returns>
-	inline const Vector3& GetDir() const { return dir_; }
+	/// <returns>方向</returns>
+	inline const Vector3& GetDirection() const { return direction_; }
 
 	/// <summary>
-	/// キャスター座標をセット
+	/// 座標をセット
 	/// </summary>
-	/// <param name="lightpos">キャスター座標</param>
-	inline void SetCasterPos(const Vector3& casterPos) { casterPos_ = casterPos; }
+	/// <param name="position">座標</param>
+	inline void SetPosition(const Vector3& position) { position_ = position; }
 
 	/// <summary>
-	/// キャスター座標を取得
+	/// 座標を取得
 	/// </summary>
-	/// <returns>キャスター座標</returns>
-	inline const Vector3& GetCasterPos() const { return casterPos_; }
+	/// <returns>座標</returns>
+	inline const Vector3& GetPosition() const { return position_; }
 
 	/// <summary>
 	/// キャスターとライトの距離をセット
@@ -76,17 +76,17 @@ public: // メンバ関数
 	/// <summary>
 	/// 減衰角度をセット
 	/// </summary>
-	/// <param name="lightFactorAngle">x:減衰開始角度 y:減衰終了角度[radian]</param>
-	inline void SetFactorAngle(const Vector2& factorAngle) {
-		factorAngleCos_.x = std::cos(factorAngle.x);
-		factorAngleCos_.y = std::cos(factorAngle.y);
+	/// <param name="angle">x:減衰開始角度 y:減衰終了角度[radian]</param>
+	inline void SetCosAngle(const Vector2& angle) {
+		cosAngle_.x = std::cos(angle.x);
+		cosAngle_.y = std::cos(angle.y);
 	}
 
 	/// <summary>
 	/// 減衰角度を取得
 	/// </summary>
 	/// <returns>減衰角度</returns>
-	inline const Vector2& GetFactorAngleCos() const { return factorAngleCos_; }
+	inline const Vector2& GetCosAngle() const { return cosAngle_; }
 
 	/// <summary>
 	/// 有効フラグをセット
@@ -102,15 +102,15 @@ public: // メンバ関数
 
 private: // メンバ変数
 	// 方向（単位ベクトル）
-	Vector3 dir_ = {1, 0, 0};
+	Vector3 direction_ = {1, 0, 0};
 	// キャスターとライトの距離
 	float distanceCasterLight_ = 100.0f;
-	// キャスター座標（ワールド座標系）
-	Vector3 casterPos_ = {0, 0, 0};
+	// 座標（ワールド座標系）
+	Vector3 position_ = {0, 0, 0};
 	// 距離減衰係数
 	Vector3 atten_ = {0.5f, 0.6f, 0.0f};
 	// 減衰角度
-	Vector2 factorAngleCos_ = {0.2f, 0.5f};
+	Vector2 cosAngle_ = {0.2f, 0.5f};
 	// 有効フラグ
 	bool active_ = false;
 };

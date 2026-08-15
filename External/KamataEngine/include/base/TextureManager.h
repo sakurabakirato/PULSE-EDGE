@@ -65,7 +65,7 @@ public:
 	/// </summary>
 	/// <param name="textureHandle">テクスチャハンドル</param>
 	/// <returns>リソース情報</returns>
-	const D3D12_RESOURCE_DESC GetResoureDesc(uint32_t textureHandle);
+	const D3D12_RESOURCE_DESC GetResourceDesc(uint32_t textureHandle);
 
 	/// <summary>
 	/// デスクリプタテーブルをセット

@@ -131,11 +131,25 @@ public: // メンバ関数
 	void SetPointLightColor(int index, const Vector3& lightcolor);
 
 	/// <summary>
-	/// 点光源のライト距離減衰係数をセット
+	/// 点光源の輝度をセット
 	/// </summary>
 	/// <param name="index">ライト番号</param>
-	/// <param name="lightatten">ライト距離減衰係数</param>
-	void SetPointLightAtten(int index, const Vector3& lightAtten);
+	/// <param name="intensity">輝度</param>
+	void SetPointLightIntensity(int index, float intensity);
+
+	/// <summary>
+	/// 点光源の半径をセット
+	/// </summary>
+	/// <param name="index">ライト番号</param>
+	/// <param name="radius">半径</param>
+	void SetPointLightRadius(int index, float radius);
+
+	/// <summary>
+	/// 点光源の減衰率をセット
+	/// </summary>
+	/// <param name="index">ライト番号</param>
+	/// <param name="decay">減衰率</param>
+	void SetPointLightDecay(int index, float decay);
 
 	/// <summary>
 	/// スポットライトの有効フラグをセット
@@ -166,11 +180,25 @@ public: // メンバ関数
 	void SetSpotLightColor(int index, const Vector3& lightcolor);
 
 	/// <summary>
-	/// スポットライトのライト距離減衰係数をセット
+	/// スポットライトの輝度をセット
 	/// </summary>
 	/// <param name="index">ライト番号</param>
-	/// <param name="lightatten">ライト距離減衰係数</param>
-	void SetSpotLightAtten(int index, const Vector3& lightAtten);
+	/// <param name="intensity">輝度</param>
+	void SetSpotLightIntensity(int index, float intensity);
+
+	/// <summary>
+	/// スポットライトの半径をセット
+	/// </summary>
+	/// <param name="index">ライト番号</param>
+	/// <param name="radius">半径</param>
+	void SetSpotLightRadius(int index, float radius);
+
+	/// <summary>
+	/// スポットライトの減衰率をセット
+	/// </summary>
+	/// <param name="index">ライト番号</param>
+	/// <param name="decay">減衰率</param>
+	void SetSpotLightDecay(int index, float decay);
 
 	/// <summary>
 	/// スポットライトのライト減衰角度をセット
@@ -244,6 +272,8 @@ private: // メンバ変数
 
 	// ダーティフラグ
 	bool dirty_ = false;
+	// コンストラクタの外部呼び出しを禁止
+	LightGroup() = default;
 };
 
 } // namespace KamataEngine

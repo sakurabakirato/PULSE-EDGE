@@ -11,36 +11,36 @@ class DirectionalLight {
 public: // サブクラス
 	// 定数バッファ用データ構造体
 	struct ConstBufferData {
-		Vector3 lightv;
+		Vector3 direction; // ライト方向
 		float pad1;
-		Vector3 lightcolor;
-		unsigned int active;
+		Vector3 color;     // ライトの色(RGB)
+		unsigned int active; // 有効フラグ
 	};
 
 public: // メンバ関数
 	/// <summary>
-	/// ライト方向をセット
+	/// 方向をセット
 	/// </summary>
-	/// <param name="lightdir">ライト方向</param>
-	void SetLightDir(const Vector3& lightdir);
+	/// <param name="direction">方向</param>
+	void SetDirection(const Vector3& direction);
 
 	/// <summary>
-	/// ライト方向を取得
+	/// 方向を取得
 	/// </summary>
-	/// <returns>ライト方向</returns>
-	inline const Vector3& GetLightDir() const { return lightDir_; }
+	/// <returns>方向</returns>
+	inline const Vector3& GetDirection() const { return direction_; }
 
 	/// <summary>
-	/// ライト色をセット
+	/// 色をセット
 	/// </summary>
-	/// <param name="lightcolor">ライト色</param>
-	inline void SetLightColor(const Vector3& lightcolor) { lightColor_ = lightcolor; }
+	/// <param name="color">色</param>
+	inline void SetColor(const Vector3& color) { color_ = color; }
 
 	/// <summary>
-	/// ライト色を取得
+	/// 色を取得
 	/// </summary>
-	/// <returns>ライト色</returns>
-	inline const Vector3& GetLightColor() const { return lightColor_; }
+	/// <returns>色</returns>
+	inline const Vector3& GetColor() const { return color_; }
 
 	/// <summary>
 	/// 有効フラグをセット
@@ -55,10 +55,10 @@ public: // メンバ関数
 	inline bool IsActive() const { return active_; }
 
 private: // メンバ変数
-	// ライト方向（単位ベクトル）
-	Vector3 lightDir_ = {1, 0, 0};
-	// ライト色
-	Vector3 lightColor_ = {1, 1, 1};
+	// 方向（単位ベクトル）
+	Vector3 direction_ = {1, 0, 0};
+	// 色
+	Vector3 color_ = {1, 1, 1};
 	// 有効フラグ
 	bool active_ = false;
 };

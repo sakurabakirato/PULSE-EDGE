@@ -3,7 +3,7 @@
 #include "KamataEngine.h"
 #include "MapChipField.h"
 #include "Math.h"
-#include "UpData.h"
+#include "UpDate.h"
 
 #include <algorithm>
 #include <cassert>
@@ -16,12 +16,24 @@ using namespace KamataEngine;
 // 02_10 21枚目
 class Enemy;
 
-class Player {
+class Player 
+{
 public:
+
 	// 左右
-	enum class LRDirection {
+	enum class LRDirection 
+	{
 		kRight,
 		kLeft,
+	};
+
+	enum class PlayerState 
+	{
+		kIdle, // 待機
+		kRun,  // 走行
+		kJump, // 上昇
+		kFall, // 落下
+		kDead, // 死亡
 	};
 
 	// 角 02_07スライド16枚目
@@ -35,7 +47,7 @@ public:
 	/// <summary>
 	/// 更新
 	/// </summary>
-	void UpDate();
+	void Update();
 
 	/// <summary>
 	/// 描画
@@ -70,14 +82,9 @@ private:
 	// モデル
 	Model* model_ = nullptr;
 
-	// テクスチャハンドル
-	//  uint32_t textureHandle_ = 0u;
-
 	Camera* camera_ = nullptr;
 
-	// Math* math_ = nullptr;
-
-	UpData* upData = nullptr;
+	UpDate* upDate_ = nullptr;
 
 	Vector3 velocity_ = {};
 
@@ -93,8 +100,6 @@ private:
 	// 速度制限
 	//  02_05 最高速度
 	static inline const float kLimitRunSpeed = 0.3f;
-
-	// std::vector<std::vector<WorldTransform*>> worldTransformBlocks_;
 
 	// 旋回開始時の角度
 	float turnFirstRotationY_ = 0.0f;

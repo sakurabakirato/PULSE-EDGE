@@ -32,17 +32,18 @@ public:
 
 	// variantがC++17から
 	union State {
-		XINPUT_STATE xInput_;
-		DIJOYSTATE2 directInput_;
+		XINPUT_STATE xInput;
+		DIJOYSTATE2 directInput;
 	};
 
 	struct Joystick {
-		Microsoft::WRL::ComPtr<IDirectInputDevice8> device_;
-		int32_t deadZoneL_;
-		int32_t deadZoneR_;
-		PadType type_;
-		State state_;
-		State statePre_;
+		Microsoft::WRL::ComPtr<IDirectInputDevice8> device;
+		int32_t deadZoneL;
+		int32_t deadZoneR;
+		PadType type;
+		uint32_t xInputIndex; // XInput時のプレイヤーインデックス(0~3)
+		State state;
+		State statePre;
 	};
 
 public: // メンバ関数
@@ -162,6 +163,20 @@ public: // メンバ関数
 	/// </summary>
 	/// <returns>接続されているジョイスティック数</returns>
 	size_t GetNumberOfJoysticks();
+
+	/// <summary>
+	/// ジョイスティックの振動を設定する (XInput専用)
+	/// </summary>
+	/// <param name="stickNo">ジョイスティック番号</param>
+	/// <param name="leftMotorSpeed">左モーターの速度 0~65535</param>
+	/// <param name="rightMotorSpeed">右モーターの速度 0~65535</param>
+	void SetJoystickVibration(int32_t stickNo, uint16_t leftMotorSpeed, uint16_t rightMotorSpeed);
+
+	/// <summary>
+	/// ジョイスティックの振動を停止する (XInput専用)
+	/// </summary>
+	/// <param name="stickNo">ジョイスティック番号</param>
+	void StopJoystickVibration(int32_t stickNo);
 
 private:
 	static BOOL CALLBACK EnumJoysticksCallback(const DIDEVICEINSTANCE* pdidInstance, VOID* pContext) noexcept;

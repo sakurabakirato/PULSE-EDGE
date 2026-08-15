@@ -13,6 +13,7 @@
 #include <3d\Material.h>
 #include <3d\Mesh.h>
 #include <3d\Model.h>
+#include <3d\Object3d.h>
 #include <3d\ObjectColor.h>
 #include <3d\PointLight.h>
 #include <3d\PrimitiveDrawer.h>
@@ -41,7 +42,7 @@ namespace KamataEngine {
 /// エンジンの初期化
 /// </summary>
 /// <param name="title">ウィンドウタイトル</param>
-void Initialize(const std::wstring& title = L"LE2X_99_カマタ_タロウ");
+void Initialize(const std::wstring& title = L"LE2X_99_カマタ_タロウ", bool enableDebugLayer = false);
 
 /// <summary>
 /// エンジンの終了処理

@@ -26,7 +26,7 @@ public: // サブクラス
 	/// <summary>
 	/// ルートパラメータ番号
 	/// </summary>
-	enum class RoomParameter {
+	enum class RootParameter {
 		kWorldTransform, // ワールド変換行列
 		kCamera,         // ビュープロジェクション変換行列
 		kTexture,        // テクスチャ

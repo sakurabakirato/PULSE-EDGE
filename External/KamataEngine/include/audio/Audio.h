@@ -26,7 +26,7 @@ public:
 		// バッファ
 		std::vector<uint8_t> buffer;
 		// 名前
-		std::string name_;
+		std::string name;
 	};
 
 	// 再生データ

@@ -26,7 +26,7 @@ public: // メンバ関数
 	/// <summary>
 	/// 初期化
 	/// </summary>
-	void Initialize(int32_t backBufferWidth = WinApp::kWindowWidth, int32_t backBufferHeight = WinApp::kWindowHeight, bool enableDebugLayer = true);
+	void Initialize(int32_t backBufferWidth = WinApp::kWindowWidth, int32_t backBufferHeight = WinApp::kWindowHeight, bool enableDebugLayer = false);
 
 	/// <summary>
 	/// 描画前処理
@@ -47,6 +47,12 @@ public: // メンバ関数
 	/// 深度バッファのクリア
 	/// </summary>
 	void ClearDepthBuffer();
+
+	/// <summary>
+	/// 初期化済みチェック
+	/// </summary>
+	/// <returns>初期化済みフラグ</returns>
+	bool IsInitialized() const { return initialized_; }
 
 	/// <summary>
 	/// デバイスの取得
@@ -93,6 +99,8 @@ private: // メンバ変数
 	// ウィンドウズアプリケーション管理
 	WinApp* winApp_;
 
+	bool initialized_ = false;
+
 	// Direct3D関連
 	Microsoft::WRL::ComPtr<IDXGIFactory7> dxgiFactory_;
 	Microsoft::WRL::ComPtr<ID3D12Device> device_;
@@ -124,7 +132,7 @@ private: // メンバ関数
 	/// <summary>
 	/// DXGIデバイス初期化
 	/// </summary>
-	void InitializeDXGIDevice(bool enableDebugLayer = true);
+	void InitializeDXGIDevice(bool enableDebugLayer = false);
 
 	/// <summary>
 	/// スワップチェーンの生成

@@ -48,8 +48,8 @@ public:
 	/// </summary>
 	/// <param name="worldTransform">ワールドトランスフォーム</param>
 	/// <param name="viewProjection">ビュープロジェクション</param>
-	/// <param name="textureHadle">テクスチャハンドル</param>
-	void Draw(const WorldTransform& worldTransform, const Camera& viewProjection, uint32_t textureHadle);
+	/// <param name="textureHandle">テクスチャハンドル</param>
+	void Draw(const WorldTransform& worldTransform, const Camera& viewProjection, uint32_t textureHandle);
 
 	/// <summary>
 	/// 2Dパーリンノイズによる地形変動

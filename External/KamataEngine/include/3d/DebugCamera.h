@@ -9,7 +9,7 @@ namespace KamataEngine {
 /// </summary>
 class DebugCamera {
 	// カメラ注視点までの距離
-	static const float distance_;
+	static const float sDistance_;
 
 public:
 	/// <summary>

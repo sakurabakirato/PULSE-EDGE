@@ -1,7 +1,7 @@
 #include "Enemy.h"
 #include "MapChipField.h"
 #include "Math.h"
-#include "UpData.h"
+#include "UpDate.h"
 #include <algorithm>
 #include <cassert>
 #include <numbers>
@@ -29,16 +29,14 @@ void Enemy::Initialize(Model* model, Camera* camera, const Vector3& position) {
 }
 
 // 02_09 スライド5枚目
-void Enemy::UpDate() {
+void Enemy::Update() 
+{
 
 	// 02_09 16枚目 移動
 	worldTransform_.translation_ += velocity_;
 
 	// 02_09 20枚目
 	walkTimer += 1.0f / 60.0f;
-
-	// 02_09 23枚目 回転アニメーション
-	// worldTransform_.rotation_.x = std::sin(std::numbers::pi_v<float> * 2.0f * walkTimer / kWalkMotionTime);
 
 	float param = std::sin(std::numbers::pi_v<float> * 2.0f * walkTimer / kWalkMotionTime);
 
@@ -47,7 +45,7 @@ void Enemy::UpDate() {
 	worldTransform_.rotation_.x = degree * (std::numbers::pi_v<float> / 180.0f);
 
 	// 02_09 スライド8枚目 ワールド行列更新
-	upData->WorldTransformUpData(worldTransform_);
+	upDate_->WorldTransformUpDate(worldTransform_);
 }
 
 // 02_09 スライド5枚目
@@ -57,7 +55,8 @@ void Enemy::Draw() {
 }
 
 // 02_10 スライド14枚目
-AABB Enemy::GetAABB() {
+AABB Enemy::GetAABB() 
+{
 
 	Vector3 worldPos = GetWorldPosition();
 
@@ -70,9 +69,9 @@ AABB Enemy::GetAABB() {
 }
 
 // 02_10 スライド14枚目
-Vector3 Enemy::GetWorldPosition() {
-
-	Vector3 worldPos;
+Vector3 Enemy::GetWorldPosition() 
+{
+	Vector3 worldPos{};
 
 	// ワールド行列の平行移動成分を取得（ワールド座標）
 	worldPos.x = worldTransform_.matWorld_.m[3][0];

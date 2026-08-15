@@ -23,11 +23,11 @@ public:
 
 	// ブレンドモード
 	enum class BlendMode {
-		kBlendModeNone,     //!< ブレンドなし
-		kBlendModeNormal,   //!< 通常αブレンド。デフォルト。 Src * SrcA + Dest * (1 - SrcA)
-		kBlendModeAdd,      //!< 加算。Src * SrcA + Dest * 1
-		kBlendModeSubtract, //!< 減算。Dest * 1 - Src * SrcA
-		kBlendModeMultily,  //!< 乗算。Src * 0 + Dest * Src
+		kNone,     //!< ブレンドなし
+		kNormal,   //!< 通常αブレンド。デフォルト。 Src * SrcA + Dest * (1 - SrcA)
+		kAdd,      //!< 加算。Src * SrcA + Dest * 1
+		kSubtract, //!< 減算。Dest * 1 - Src * SrcA
+		kBlendModeMultiply,  //!< 乗算。Src * 0 + Dest * Src
 		kBlendModeScreen,   //!< スクリーン。Src * (1 - Dest) + Dest * 1
 
 		// 利用してはいけない
@@ -126,6 +126,14 @@ private:
 	void CreateGraphicsPipelines();
 
 	/// <summary>
+	/// シェーダーのコンパイル
+	/// </summary>
+	void CompileShaders();
+
+	// ルートシグネチャの生成
+	void CreateRootSignature();
+
+	/// <summary>
 	/// 各種メッシュ生成
 	/// </summary>
 	void CreateMeshes();
@@ -137,7 +145,13 @@ private:
 	// 参照するカメラ
 	const Camera* camera_ = nullptr;
 	// ブレンドモード
-	BlendMode blendMode_ = BlendMode::kBlendModeNormal;
+	BlendMode blendMode_ = BlendMode::kNormal;
+	// 頂点シェーダオブジェクト
+	Microsoft::WRL::ComPtr<ID3DBlob> vsBlob_;
+	// ピクセルシェーダオブジェクト
+	Microsoft::WRL::ComPtr<ID3DBlob> psBlob_;
+	// ルートシグネチャ
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature_;
 	// パイプラインセット
 	std::array<std::unique_ptr<PipelineSet>, (uint16_t)BlendMode::kCountOfBlendMode> pipelineSetLines_;
 };

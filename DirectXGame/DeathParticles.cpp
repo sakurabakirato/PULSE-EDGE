@@ -64,7 +64,7 @@ void DeathParticles::Update() {
 	// 02_11_12枚目
 	for (auto& worldTransform : worldTransforms_) {
 		// ワールド行列更新（アフィン変換～DirectXに転送）
-		upData->WorldTransformUpData(worldTransform);
+		upDate_->WorldTransformUpDate(worldTransform);
 	}
 }
 

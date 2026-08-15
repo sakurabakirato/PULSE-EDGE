@@ -2,7 +2,7 @@
 #include "Player.h"
 #include "MapChipField.h"
 #include "Math.h"
-#include "UpData.h"
+#include "UpDate.h"
 #include <algorithm>
 #include <cassert>
 #include <numbers>
@@ -26,10 +26,10 @@ void Player::InputMove() {
 	if (onGround_) {
 
 		// 左右操作
-		if (Input::GetInstance()->PushKey(DIK_RIGHT) || Input::GetInstance()->PushKey(DIK_LEFT)) {
+		if (Input::GetInstance()->PushKey(DIK_D) || Input::GetInstance()->PushKey(DIK_A)) {
 			// 左右加速
 			Vector3 acceleration = {};
-			if (Input::GetInstance()->PushKey(DIK_RIGHT)) {
+			if (Input::GetInstance()->PushKey(DIK_D)) {
 				if (velocity_.x < 0.0f) {
 					velocity_.x *= (1.0f - kAttenuation);
 				}
@@ -41,7 +41,7 @@ void Player::InputMove() {
 					turnTimer_ = kTimeTurn;
 				}
 
-			} else if (Input::GetInstance()->PushKey(DIK_LEFT)) {
+			} else if (Input::GetInstance()->PushKey(DIK_A)) {
 				if (velocity_.x > 0.0f) {
 					velocity_.x *= (1.0f - kAttenuation);
 				}
@@ -66,7 +66,7 @@ void Player::InputMove() {
 			velocity_.x = 0.0f;
 		}
 
-		if (Input::GetInstance()->PushKey(DIK_UP)) {
+		if (Input::GetInstance()->PushKey(DIK_SPACE)) {
 			// ジャンプ初速
 			velocity_ = Add(Vector3(0, kJumpAcceleration / 60.0f, 0), velocity_);
 		}
@@ -364,7 +364,8 @@ Vector3 Player::CornerPosition(const Vector3& center, Corner corner) {
 	return center + offsetTable[static_cast<uint32_t>(corner)];
 }
 
-void Player::UpDate() {
+void Player::Update() 
+{
 
 	// 移動入力(02_07 スライド10枚目)
 	InputMove();
@@ -393,36 +394,9 @@ void Player::UpDate() {
 	// 接地判定
 	UpdateOnGround(collisionMapInfo);
 
-	// bool landing = false;
-
-	//// 下降あり？
-	// if (velocity_.y < 0) {
-	//	// Y座標が地面以下になったら着地
-	//	if (worldTransform_.translation_.y <= 1.0f) {
-	//		landing = true;
-	//	}
-	// }
-
-	//// 接地状態
-
-	//// 接地判定
-	// if (onGround_) {
-	//	// ジャンプ開始
-	//	if (velocity_.y > 0.0f) {
-	//		onGround_ = false;
-	//	}
-	// } else {
-	//	// 着地
-	//	if (landing) {
-	//		worldTransform_.translation_.y = 1.0f;
-	//		velocity_.x *= (1.0f - kAttenuation);
-	//		velocity_.y = 0.0f;
-	//		onGround_ = true;
-	//	}
-	// }
-
 	// 旋回制御
-	if (turnTimer_ > 0.0f) {
+	if (turnTimer_ > 0.0f) 
+	{
 		// タイマーを進める
 		turnTimer_ = std::max(turnTimer_ - (1.0f / 60.0f), 0.0f);
 
@@ -433,19 +407,17 @@ void Player::UpDate() {
 		worldTransform_.rotation_.y = EaseInOut(destinationRotationY, turnFirstRotationY_, turnTimer_ / kTimeTurn);
 	}
 
-	upData->WorldTransformUpData(worldTransform_);
+	upDate_->WorldTransformUpDate(worldTransform_);
 }
 
-//// アフィン変換行列の生成
-// worldTransform_.matWorld_ = MakeAffineMatrix(worldTransform_.scale_, worldTransform_.rotation_, worldTransform_.translation_);
-
-//// 定数バッファに転送する
-// worldTransform_.TransferMatrix();
-
-void Player::Draw() { model_->Draw(worldTransform_, *camera_); }
+void Player::Draw() 
+{
+	model_->Draw(worldTransform_, *camera_); 
+}
 
 // 02_10 10枚目
-Vector3 Player::GetWorldPosition() {
+Vector3 Player::GetWorldPosition() 
+{
 
 	Vector3 worldPos{};
 	// ワールド行列の平行移動成分を取得（ワールド座標）

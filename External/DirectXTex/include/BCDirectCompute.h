@@ -1,6 +1,6 @@
 //-------------------------------------------------------------------------------------
 // BCDirectCompute.h
-//  
+//
 // Direct3D 11 Compute Shader BC Compressor
 //
 // Copyright (c) Microsoft Corporation.
@@ -16,6 +16,12 @@ namespace DirectX
     {
     public:
         GPUCompressBC() noexcept;
+
+        GPUCompressBC(GPUCompressBC&&) = default;
+        GPUCompressBC& operator= (GPUCompressBC&&) = default;
+
+        GPUCompressBC(GPUCompressBC const&) = delete;
+        GPUCompressBC& operator= (GPUCompressBC const&) = delete;
 
         HRESULT Initialize(_In_ ID3D11Device* pDevice);
 
