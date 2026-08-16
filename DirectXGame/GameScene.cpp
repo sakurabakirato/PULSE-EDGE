@@ -4,20 +4,19 @@ using namespace KamataEngine;
 
 GameScene::~GameScene() 
 {
-	// delete sprite_;
 	delete debugCamera_;
-
 	delete model_;
-
 	delete blockModel_;
-
 	delete skydome_;
-
 	delete modelPlayer_;
-
 	delete player_;
-	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) {
-		for (WorldTransform*& worldTransformBlock : worldTransformBlockLine) {
+	delete boss_;
+	delete modelBoss_;
+
+	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) 
+	{
+		for (WorldTransform*& worldTransformBlock : worldTransformBlockLine) 
+		{
 			delete worldTransformBlock;
 		}
 	}
@@ -25,19 +24,9 @@ GameScene::~GameScene()
 
 	delete mapChipField_;
 
-	// 02_09 10枚目 敵クラス削除
-	// delete enemy_;
-
-	// 02_10 6枚目 敵クラス削除
-	for (Enemy* enemy : enemies_) 
-	{
-		delete enemy;
-	}
-
 	// 02_11_17枚目
 	delete deathParticles_;
 	delete deathParticle_model_;
-
 	delete fade_;
 }
 
@@ -80,17 +69,13 @@ void GameScene::Initialize() {
 	skydome_->Initialize(modelSkydome_, &camera_);
 
 	mapChipField_ = new MapChipField;
-
 	mapChipField_->LoadMapChipCsv("Resources/blocks_csv/blocks.csv");
 
 	GenerateBlocks();
 
 	CController_ = new CameraController(); // 生成
-
 	CController_->Initialize(&camera_); // 初期化
-
 	CController_->SetTarget(player_); // 追従対象セット
-
 	CController_->Reset(); // リセット
 
 	CameraController::Rect cameraArea = {12.0f, 100 - 12.0f, 6.0f, 6.0f};
@@ -98,27 +83,16 @@ void GameScene::Initialize() {
 
 	// マップチップフィールドの生成と初期化
 	// 自キャラの生成と初期化
-	//  02_07 スライド5枚目
 	player_->SetMapChipField(mapChipField_);
 
-	// 02_09 10枚目 敵クラス
-	enemy_ = new Enemy();
-	// 02_09 10枚目 敵モデル
-	enemy_model_ = Model::CreateFromOBJ("enemy");
-	// 02_09 10枚目 敵位置決めて敵クラス初期化
-	// Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(14, 18);
-	// enemy_->Initialize(enemy_model_, &camera_, enemyPosition);
 
-	// 02_10 5枚目（for文の中身全部）
-	for (int32_t i = 0; i < 3; ++i) {
-		Enemy* newEnemy = new Enemy();
-
-		Vector3 enemyPosition = mapChipField_->GetMapChipPositionByIndex(14 + i * 3, 18);
-
-		newEnemy->Initialize(enemy_model_, &camera_, enemyPosition);
-
-		enemies_.push_back(newEnemy);
-	}
+	//---------------ボスクラス--------------//
+	boss_ = new Boss();
+	//ボスモデル
+	modelBoss_ = Model::CreateFromOBJ("boss");
+	//ボスの位置決めてボスクラス初期化
+	Vector3 bossPosition = mapChipField_->GetMapChipPositionByIndex(14, 18);
+	boss_->Initialize(modelBoss_, &camera_, mapChipField_, bossPosition);
 
 	// 02_11_16枚目 モデル読み込み
 	deathParticle_model_ = Model::CreateFromOBJ("deathParticle");
@@ -135,7 +109,8 @@ void GameScene::Initialize() {
 	fade_->Start(Fade::Status::FadeIn, 1.0f);
 }
 
-void GameScene::GenerateBlocks() {
+void GameScene::GenerateBlocks() 
+{
 	// 要素数
 	uint32_t numBlockVirtical = mapChipField_->GetNumBlockVirtical();
 	uint32_t numBlockHorizontal = mapChipField_->GetNumBlockHorizontal();
@@ -145,13 +120,17 @@ void GameScene::GenerateBlocks() {
 	worldTransformBlocks_.resize(numBlockVirtical);
 
 	// キューブの生成
-	for (uint32_t i = 0; i < numBlockVirtical; ++i) {
+	for (uint32_t i = 0; i < numBlockVirtical; ++i) 
+	{
 		worldTransformBlocks_[i].resize(numBlockHorizontal);
 	}
 	// ブロックの生成
-	for (uint32_t i = 0; i < numBlockVirtical; ++i) {
-		for (uint32_t j = 0; j < numBlockHorizontal; ++j) {
-			if (mapChipField_->GetMapChipTypeByIndex(j, i) == MapChipType::kBlock) {
+	for (uint32_t i = 0; i < numBlockVirtical; ++i) 
+	{
+		for (uint32_t j = 0; j < numBlockHorizontal; ++j) 
+		{
+			if (mapChipField_->GetMapChipTypeByIndex(j, i) == MapChipType::kBlock) 
+			{
 				WorldTransform* worldTransform = new WorldTransform();
 				worldTransform->Initialize();
 				worldTransformBlocks_[i][j] = worldTransform;
@@ -195,16 +174,14 @@ void GameScene::Update()
 		}
 	}
 
-	//  skydome生成
+	// 天球生成
 	skydome_->Update();
 
-	//  自キャラの更新
+	// 自キャラの更新
 	player_->Update();
 
-	for (Enemy* enemy : enemies_) 
-	{
-		enemy->Update();
-	}
+	// ボス更新
+	boss_->Update();
 
 	ChangePhase();
 
@@ -242,6 +219,8 @@ void GameScene::Update()
 		}
 	}
 
+
+
 }
 
 void GameScene::Draw() 
@@ -249,7 +228,7 @@ void GameScene::Draw()
 
 	Model::PreDraw();
 
-	// ブロックの描画
+	//ブロックの描画
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) 
 	{
 		for (WorldTransform*& worldTransformBlock : worldTransformBlockLine) 
@@ -259,21 +238,18 @@ void GameScene::Draw()
 			blockModel_->Draw(*worldTransformBlock, camera_);
 		}
 	}
-
+	//自キャラ描画
 	if (phase_ == Phase::kPlay || phase_ == Phase::kFadeIn) 
 	{
 		player_->Draw();
 	}
 
-	// 天球描画
+	//天球描画
 	skydome_->Draw();
 
-	for (Enemy* enemy : enemies_) 
-	{
-		enemy->Draw();
-	}
+	boss_->Draw();
 
-	// 02_11 18枚目 デスパーティクルあれば描画
+	//デスパーティクルあれば描画
 	if (deathParticles_) 
 	{
 		deathParticles_->Draw();
@@ -284,31 +260,32 @@ void GameScene::Draw()
 	fade_->Draw();
 }
 
-// 02_10 16枚目
+//自キャラとボスの当たり判定
 void GameScene::CheckAllCollisions() 
 {
-
 	// 判定対象1と2の座標
 	AABB aabb1, aabb2;
 
-#pragma region 自キャラと敵キャラの当たり判定
+#pragma region 自キャラとボスの当たり判定
 	{
-		// 自キャラの座標
-		aabb1 = player_->GetAABB();
-
-		// 自キャラと敵弾全ての当たり判定
-		for (Enemy* enemy : enemies_) 
+		if (!boss_->IsDead())   // これを追加！
 		{
-			// 敵弾の座標
-			aabb2 = enemy->GetAABB();
+			if (boss_->isDead == 1)
+			{
+				// 死んでいる敵は当たり判定を行わない
+				return; // ここで現在の処理を終了
+			}
+
+			// 自キャラの座標
+			aabb1 = player_->GetAABB();
+			// ボスの座標
+			aabb2 = boss_->GetAABB();
 
 			// AABB同士の交差判定
-			if (IsCollision(aabb1, aabb2)) 
+			if (IsCollision(aabb1, aabb2))
 			{
-				// 自キャラの衝突時コールバックを呼び出す
-				player_->OnCollision(enemy);
-				// 敵弾の衝突時コールバックを呼び出す
-				enemy->OnCollision(player_);
+				player_->OnCollision(boss_);
+				boss_->OnCollision(player_);
 			}
 		}
 	}

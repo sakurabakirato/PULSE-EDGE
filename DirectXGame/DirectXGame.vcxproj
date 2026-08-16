@@ -116,9 +116,9 @@ xcopy "$(ProjectDir)..\External\KamataEngine\shaders" "$(ProjectDir)Resources\En
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Boss.cpp" />
     <ClCompile Include="CameraController.cpp" />
     <ClCompile Include="DeathParticles.cpp" />
-    <ClCompile Include="Enemy.cpp" />
     <ClCompile Include="Fade.cpp" />
     <ClCompile Include="GameScene.cpp" />
     <ClCompile Include="main.cpp" />
@@ -207,9 +207,9 @@ xcopy "$(ProjectDir)..\External\KamataEngine\shaders" "$(ProjectDir)Resources\En
     <None Include="Resources\shaders\Sprite.hlsli" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Boss.h" />
     <ClInclude Include="CameraController.h" />
     <ClInclude Include="DeathParticles.h" />
-    <ClInclude Include="Enemy.h" />
     <ClInclude Include="Fade.h" />
     <ClInclude Include="GameScene.h" />
     <ClInclude Include="MapChipField.h" />

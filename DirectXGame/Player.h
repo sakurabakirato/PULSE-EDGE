@@ -1,5 +1,4 @@
 #pragma once
-#include "Enemy.h"
 #include "KamataEngine.h"
 #include "MapChipField.h"
 #include "Math.h"
@@ -14,7 +13,7 @@ class MapChipField;
 using namespace KamataEngine;
 
 // 02_10 21枚目
-class Enemy;
+class Boss;
 
 class Player 
 {
@@ -35,6 +34,25 @@ public:
 		kFall, // 落下
 		kDead, // 死亡
 	};
+
+	// ふるまい
+	enum class Behavior
+	{
+		kUnknown = -1, // 無効な状態
+		kRoot,
+		kAttack,
+
+	};
+
+	// 攻撃フェーズ
+	enum class AttackPhase
+	{
+		kUnknown = -1, // 無効な状態
+		kAnticipation, // 予備の動作
+		kAction,       // 前進の動作
+		kRecovery,     // 余韻の動作
+	};
+
 
 	// 角 02_07スライド16枚目
 	enum Corner { kRightBottom, kLeftBottom, kRightTop, kLeftTop, kNumCorner };
@@ -70,10 +88,39 @@ public:
 	AABB GetAABB();
 
 	// 02_10 21枚目 衝突応答
-	void OnCollision(const Enemy* enemy);
+	void OnCollision(Boss* boss);
 
 	// 02_12 11枚目 デスフラグ
 	bool IsDead() const { return isDead_; }
+
+	// 通常行動初期化
+	void BehaviorRootInitialize();
+
+	// 通常行動更新
+	void BehaviorRootUpdate();
+
+	// 攻擊行動初期化
+	void BehaviorAttackInitialize();
+
+	// 攻撃行動更新
+	void BehaviorAttackUpdate();
+
+	// 予備動作
+	static inline const uint32_t kAnticipationTime = 8;
+	// 前進動作の時間
+	static inline const uint32_t kActionTime = 5;
+	// 余韻動作の時間
+	static inline const uint32_t kRecoveryTime = 12;
+	Model* modelAttack = nullptr;
+	WorldTransform worldTransformAttack;
+	Behavior behavior_ = Behavior::kRoot;
+	// 次の振るまいリクエスト
+	Behavior behaviorRequest_ = Behavior::kUnknown;
+
+	bool IsAttack();
+	// 攻撃フェーズ
+	AttackPhase attackPhase = AttackPhase::kUnknown;
+	AttackPhase attackPhaseRequest = AttackPhase::kUnknown;
 
 private:
 	// ワールド変換データ
