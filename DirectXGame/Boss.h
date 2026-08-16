@@ -2,8 +2,8 @@
 #include "KamataEngine.h"
 #include "MapChipField.h"
 #include "Math.h"
-#include "UpDate.h"
 #include "Player.h"
+#include <list>
 
 using namespace KamataEngine;
 
@@ -15,10 +15,7 @@ public:
 	/// <summary>
 	/// 初期化
 	/// </summary>
-	/// <param name="model_"></param>
-	/// <param name="camera_"></param>
-	/// <param name="position"></param>
-	void Initialize(Model* model, Camera* camera, MapChipField* mapChipField, const Vector3& position);
+	void Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipField* mapChipField, Player* player, const Vector3& position);
 
 	/// <summary>
 	/// 更新
@@ -47,8 +44,6 @@ public:
 
 	};
 
-	void CheckWallAndReverse();
-
 	bool ShouldDropBlock() const { return canBlockAttack_; }
 	void ConsumeBlockAttack() { canBlockAttack_ = false; }
 
@@ -71,11 +66,6 @@ private:
 
 	// モデル
 	Model* model_ = nullptr;
-
-	UpDate* upDate_ = nullptr;
-
-	// テクスチャハンドル
-	//  uint32_t textureHandle_ = 0u;
 
 	Camera* camera_ = nullptr;
 
@@ -115,7 +105,6 @@ private:
 	// 次の振るまいリクエスト
 	Behavior behaviorRequest = Behavior::kUnknown;
 
-
 	MapChipField* mapChipField_ = nullptr;
 
 	AABB aabb_ = {};
@@ -123,7 +112,37 @@ private:
 	int blockAttackTimer_ = 0;
 	bool canBlockAttack_ = true;
 
+	// ボスが移動する4か所
+	Vector3 movePositions_[4] = {};
 
+	// 現在向かっている場所
+	int movePositionIndex_ = 0;
+
+	// 到着後の待機時間
+	float moveWaitTimer_ = 0.0f;
+
+	// ボスの弾
+	struct Bullet
+	{
+		WorldTransform worldTransform;
+		Vector3 velocity = {};
+		float lifeTimer = 0.0f;
+		bool homing = false;
+	};
+
+	Model* bulletModel_ = nullptr;
+	Player* player_ = nullptr;
+
+	std::list<Bullet> bullets_;
+
+	// 0=円形、1=ホーミング、2=3列攻撃
+	int attackType_ = 0;
+
+	// 現在の待機中に攻撃したか
+	bool attackDone_ = false;
+
+	// 弾を発射
+	void Attack();
 
 };
 

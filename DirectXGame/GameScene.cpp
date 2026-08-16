@@ -12,6 +12,7 @@ GameScene::~GameScene()
 	delete player_;
 	delete boss_;
 	delete modelBoss_;
+	delete modelBossBullet_;
 
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) 
 	{
@@ -90,9 +91,11 @@ void GameScene::Initialize() {
 	boss_ = new Boss();
 	//ボスモデル
 	modelBoss_ = Model::CreateFromOBJ("boss");
+	// 仮の弾モデル
+	modelBossBullet_ = Model::CreateSphere(8, 8);
 	//ボスの位置決めてボスクラス初期化
-	Vector3 bossPosition = mapChipField_->GetMapChipPositionByIndex(14, 18);
-	boss_->Initialize(modelBoss_, &camera_, mapChipField_, bossPosition);
+	Vector3 bossPosition = mapChipField_->GetMapChipPositionByIndex(50, 13);// 中央足場の上から出現
+	boss_->Initialize(modelBoss_, modelBossBullet_, &camera_, mapChipField_, player_, bossPosition);
 
 	// 02_11_16枚目 モデル読み込み
 	deathParticle_model_ = Model::CreateFromOBJ("deathParticle");

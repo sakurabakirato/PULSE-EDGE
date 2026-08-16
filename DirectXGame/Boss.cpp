@@ -1,21 +1,22 @@
 #include "Boss.h"
-#include "UpDate.h"
+#include <cmath>
 #include <algorithm>
 #include <cassert>
 #include <numbers>
 
 using namespace KamataEngine;
 
-void Boss::Initialize(Model* model, Camera* camera, MapChipField* mapChipField, const Vector3& position)
+void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipField* mapChipField, Player* player, const Vector3& position)
 {
 	assert(model);
+	assert(bulletModel);
+	assert(player);
 
-	// 02_09 7枚目
 	model_ = model;
-	// 02_09 7枚目
 	camera_ = camera;
-
 	mapChipField_ = mapChipField;
+	bulletModel_ = bulletModel;
+	player_ = player;
 
 	// 02_09 7枚目
 	worldTransform_.Initialize();
@@ -31,51 +32,347 @@ void Boss::Initialize(Model* model, Camera* camera, MapChipField* mapChipField, 
 	// 02_09 20枚目
 	walkTimer = 0.0f;
 
-
 	// ---- AABB 初期化 ----
 	const float halfSize = 0.5f; // ボスの大きさに応じて調整
 	aabb_.min = { position.x - halfSize, position.y - halfSize, position.z - halfSize };
 	aabb_.max = { position.x + halfSize, position.y + halfSize, position.z + halfSize };
 
+	// 左上の足場
+	movePositions_[0] =
+		mapChipField_->GetMapChipPositionByIndex(17, 10);
+
+	// 左下の床
+	movePositions_[1] =
+		mapChipField_->GetMapChipPositionByIndex(10, 18);
+
+	// 右下の床
+	movePositions_[2] =
+		mapChipField_->GetMapChipPositionByIndex(89, 18);
+
+	// 右上の足場
+	movePositions_[3] =
+		mapChipField_->GetMapChipPositionByIndex(82, 10);
+
+	movePositionIndex_ = 0;
+	moveWaitTimer_ = 0.0f;
+
+	attackType_ = 0;
+	attackDone_ = false;
+
+}
+
+void Boss::Attack()
+{
+	Vector3 bossPosition = worldTransform_.translation_;
+	Vector3 playerPosition = player_->GetWorldPosition();
+
+	// 1. ボスを中心に円形に広がる攻撃
+	if (attackType_ == 0)
+	{
+		// 1周あたりの弾数
+		const int bulletCount = 24;
+
+		// 円形弾を2重に発射
+		const int circleCount = 2;
+
+		for (int circle = 0; circle < circleCount; ++circle)
+		{
+			// 1周目は遅く、2周目は少しだけ速くする
+			float bulletSpeed =
+				0.07f + static_cast<float>(circle) * 0.015f;
+
+			for (int i = 0; i < bulletCount; ++i)
+			{
+				float angle =
+					std::numbers::pi_v<float> *2.0f *
+					static_cast<float>(i) /
+					static_cast<float>(bulletCount);
+
+				// 2周目の角度を少しずらす
+				if (circle == 1)
+				{
+					angle +=
+						std::numbers::pi_v<float> /
+						static_cast<float>(bulletCount);
+				}
+
+				bullets_.emplace_back();
+				Bullet& bullet = bullets_.back();
+
+				bullet.worldTransform.Initialize();
+				bullet.worldTransform.translation_ =
+					bossPosition;
+
+				bullet.worldTransform.scale_ = {
+					0.2f,
+					0.2f,
+					0.2f
+				};
+
+				bullet.velocity.x =
+					std::cos(angle) * bulletSpeed;
+
+				bullet.velocity.y =
+					std::sin(angle) * bulletSpeed;
+
+				bullet.velocity.z = 0.0f;
+
+				bullet.homing = false;
+				bullet.lifeTimer = 0.0f;
+			}
+		}
+	}
+
+	// 2. 複数のホーミング弾
+	if (attackType_ == 1)
+	{
+		const int bulletCount = 5;
+		const float bulletSpeed = 0.10f;
+
+		Vector3 direction = {};
+		direction.x = playerPosition.x - bossPosition.x;
+		direction.y = playerPosition.y - bossPosition.y;
+
+		float distance = std::sqrt(
+			direction.x * direction.x +
+			direction.y * direction.y);
+
+		if (distance > 0.0f)
+		{
+			direction.x /= distance;
+			direction.y /= distance;
+		}
+
+		for (int i = 0; i < bulletCount; ++i)
+		{
+			float angle =
+				(static_cast<float>(i) - 2.0f) * 0.25f;
+
+			float rotatedX =
+				direction.x * std::cos(angle) -
+				direction.y * std::sin(angle);
+
+			float rotatedY =
+				direction.x * std::sin(angle) +
+				direction.y * std::cos(angle);
+
+			bullets_.emplace_back();
+			Bullet& bullet = bullets_.back();
+
+			bullet.worldTransform.Initialize();
+			bullet.worldTransform.translation_ = bossPosition;
+			bullet.worldTransform.scale_ = {
+				0.3f, 0.3f, 0.3f
+			};
+
+			bullet.velocity.x = rotatedX * bulletSpeed;
+			bullet.velocity.y = rotatedY * bulletSpeed;
+			bullet.velocity.z = 0.0f;
+
+			bullet.homing = true;
+			bullet.lifeTimer = 0.0f;
+		}
+	}
+
+	// 3. プレイヤーへ向かう3列の弾
+	if (attackType_ == 2)
+	{
+		const float bulletSpeed = 0.18f;
+
+		Vector3 direction = {};
+		direction.x = playerPosition.x - bossPosition.x;
+		direction.y = playerPosition.y - bossPosition.y;
+
+		float distance = std::sqrt(
+			direction.x * direction.x +
+			direction.y * direction.y);
+
+		if (distance > 0.0f)
+		{
+			direction.x /= distance;
+			direction.y /= distance;
+		}
+
+		// 進行方向に対して垂直な方向
+		Vector3 sideDirection = {};
+		sideDirection.x = -direction.y;
+		sideDirection.y = direction.x;
+
+		for (int line = -1; line <= 1; ++line)
+		{
+			for (int i = 0; i < 5; ++i)
+			{
+				bullets_.emplace_back();
+				Bullet& bullet = bullets_.back();
+
+				bullet.worldTransform.Initialize();
+
+				bullet.worldTransform.translation_.x =
+					bossPosition.x +
+					sideDirection.x *
+					static_cast<float>(line) * 1.2f -
+					direction.x *
+					static_cast<float>(i) * 0.7f;
+
+				bullet.worldTransform.translation_.y =
+					bossPosition.y +
+					sideDirection.y *
+					static_cast<float>(line) * 1.2f -
+					direction.y *
+					static_cast<float>(i) * 0.7f;
+
+				bullet.worldTransform.translation_.z =
+					bossPosition.z;
+
+				bullet.worldTransform.scale_ = {
+					0.25f, 0.25f, 0.25f
+				};
+
+				bullet.velocity.x =
+					direction.x * bulletSpeed;
+
+				bullet.velocity.y =
+					direction.y * bulletSpeed;
+
+				bullet.velocity.z = 0.0f;
+
+				bullet.homing = false;
+				bullet.lifeTimer = 0.0f;
+			}
+		}
+	}
+
+	// 次の攻撃へ進める
+	attackType_++;
+
+	if (attackType_ >= 3)
+	{
+		attackType_ = 0;
+	}
 }
 
 // 02_09 スライド5枚目
 void Boss::Update() 
 {
-	// 変更リクエストがあったら
+	// 振る舞いの変更
 	if (behaviorRequest != Behavior::kUnknown)
 	{
-		// 振る舞いを変更する
 		behavior = behaviorRequest;
-		// 各振る舞いごとの初期化を実行
+
 		switch (behavior)
 		{
 		case Behavior::kDefeated:
 			counter = 0.0f;
 			break;
+
 		default:
 			break;
 		}
-		// 振る舞いを変更する
-		behavior = behaviorRequest;
+
+		behaviorRequest = Behavior::kUnknown;
 	}
 
 	switch (behavior)
 	{
-	case Behavior::kWalk: // 歩行
-		// 移動
-		worldTransform_.translation_ += velocity_;
-		// 回転アニメーション
-		walkTimer = 1.0f / 60.0f;
-		//worldTransform_.rotation_.x = std::sin(std::numbers::piv<float> *2.0f * walkTimer / kWalkMotionTime);
-		upDate_->WorldTransformUpDate(worldTransform_);
+	case Behavior::kWalk:
+		if (moveWaitTimer_ > 0.0f)
+		{
+			moveWaitTimer_ -= 1.0f / 60.0f;
+
+			// 到着してから約0.5秒後に1回だけ攻撃
+			if (moveWaitTimer_ <= 3.5f)
+			{
+				if (!attackDone_)
+				{
+					Attack();
+					attackDone_ = true;
+				}
+			}
+
+			if (moveWaitTimer_ < 0.0f)
+			{
+				moveWaitTimer_ = 0.0f;
+			}
+		}
+		else
+		{
+			Vector3 targetPosition =
+				movePositions_[movePositionIndex_];
+
+			Vector3 difference = {};
+
+			difference.x =
+				targetPosition.x - worldTransform_.translation_.x;
+
+			difference.y =
+				targetPosition.y - worldTransform_.translation_.y;
+
+			difference.z =
+				targetPosition.z - worldTransform_.translation_.z;
+
+			float distance = std::sqrt(
+				difference.x * difference.x +
+				difference.y * difference.y +
+				difference.z * difference.z);
+
+			// 移動先へ到着
+			if (distance <= kWalkSpeed)
+			{
+				worldTransform_.translation_ = targetPosition;
+				velocity_ = { 0.0f, 0.0f, 0.0f };
+
+				// 合計4秒間停止
+				moveWaitTimer_ = 4.0f;
+
+				// 次の待機中に攻撃できるようにする
+				attackDone_ = false;
+
+				// 次の移動先へ進める
+				movePositionIndex_++;
+
+				if (movePositionIndex_ >= 4)
+				{
+					movePositionIndex_ = 0;
+				}
+			} 
+			else
+			{
+				// 移動先の方向へ一定速度で移動
+				velocity_.x =
+					difference.x / distance * kWalkSpeed;
+
+				velocity_.y =
+					difference.y / distance * kWalkSpeed;
+
+				velocity_.z =
+					difference.z / distance * kWalkSpeed;
+
+				worldTransform_.translation_ += velocity_;
+
+				// ボスの向きを移動方向へ合わせる
+				if (velocity_.x > 0.0f)
+				{
+					isFacingRight_ = true;
+
+					worldTransform_.rotation_.y =
+						std::numbers::pi_v<float> / 2.0f;
+				} 
+				else if (velocity_.x < 0.0f)
+				{
+					isFacingRight_ = false;
+
+					worldTransform_.rotation_.y =
+						std::numbers::pi_v<float> *
+						3.0f / 2.0f;
+				}
+			}
+		}
 		break;
 
-	case Behavior::kDefeated: // やられ
+	case Behavior::kDefeated:
 		counter += 1.0f / 60.0f;
 		worldTransform_.rotation_.y += 0.3f;
-		//worldTransform.rotation.x = EaseOut(ToRadians(kDefeatedMotionAngleStart), ToRadians(kDefeatedMotionAngleEnd), counter / kDefeatedTime);
-		upDate_->WorldTransformUpDate(worldTransform_);
+
 		if (counter >= kDefeatedTime)
 		{
 			isDead = true;
@@ -83,15 +380,118 @@ void Boss::Update()
 		break;
 	}
 
-	// 壁判定
-	CheckWallAndReverse();
+	// ワールド行列を更新
+	worldTransform_.matWorld_ = MakeAffineMatrix(
+		worldTransform_.scale_,
+		worldTransform_.rotation_,
+		worldTransform_.translation_);
 
-	// ==== ブロック落下攻撃タイマー ====
-	blockAttackTimer_++;
-	if (blockAttackTimer_ > 180)  // 3秒に1回発射
+	worldTransform_.TransferMatrix();
+
+	// ボスの弾を更新
+	for (auto bulletIterator = bullets_.begin();
+		bulletIterator != bullets_.end();)
 	{
-		canBlockAttack_ = true;
-		blockAttackTimer_ = 0;
+		Bullet& bullet = *bulletIterator;
+
+		// ホーミング弾
+		if (bullet.homing)
+		{
+			Vector3 playerPosition = player_->GetWorldPosition();
+
+			Vector3 direction = {};
+			direction.x =
+				playerPosition.x -
+				bullet.worldTransform.translation_.x;
+
+			direction.y =
+				playerPosition.y -
+				bullet.worldTransform.translation_.y;
+
+			float distance = std::sqrt(
+				direction.x * direction.x +
+				direction.y * direction.y);
+
+			if (distance > 0.0f)
+			{
+				direction.x /= distance;
+				direction.y /= distance;
+
+				const float homingSpeed = 0.13f;
+
+				// 急に曲がらず、少しずつ進行方向を変える
+				bullet.velocity.x =
+					bullet.velocity.x * 0.95f +
+					direction.x * homingSpeed * 0.05f;
+
+				bullet.velocity.y =
+					bullet.velocity.y * 0.95f +
+					direction.y * homingSpeed * 0.05f;
+
+				float velocityLength = std::sqrt(
+					bullet.velocity.x * bullet.velocity.x +
+					bullet.velocity.y * bullet.velocity.y);
+
+				if (velocityLength > 0.0f)
+				{
+					bullet.velocity.x =
+						bullet.velocity.x /
+						velocityLength * homingSpeed;
+
+					bullet.velocity.y =
+						bullet.velocity.y /
+						velocityLength * homingSpeed;
+				}
+			}
+		}
+
+		bullet.worldTransform.translation_ += bullet.velocity;
+		bullet.lifeTimer += 1.0f / 60.0f;
+
+		bullet.worldTransform.matWorld_ = MakeAffineMatrix(
+			bullet.worldTransform.scale_,
+			bullet.worldTransform.rotation_,
+			bullet.worldTransform.translation_);
+
+		bullet.worldTransform.TransferMatrix();
+
+		// プレイヤーとの当たり判定
+		AABB bulletAABB = {};
+
+		bulletAABB.min = {
+			bullet.worldTransform.translation_.x - 0.25f,
+			bullet.worldTransform.translation_.y - 0.25f,
+			bullet.worldTransform.translation_.z - 0.25f
+		};
+
+		bulletAABB.max = {
+			bullet.worldTransform.translation_.x + 0.25f,
+			bullet.worldTransform.translation_.y + 0.25f,
+			bullet.worldTransform.translation_.z + 0.25f
+		};
+
+		bool eraseBullet = false;
+
+		if (IsCollision(bulletAABB, player_->GetAABB()))
+		{
+			player_->OnBulletCollision();
+			eraseBullet = true;
+		}
+
+		// 8秒経過した弾を削除
+		if (bullet.lifeTimer >= 8.0f)
+		{
+			eraseBullet = true;
+		}
+
+		if (eraseBullet)
+		{
+			bulletIterator = bullets_.erase(bulletIterator);
+		} 
+		else
+		{
+			++bulletIterator;
+		}
 	}
 
 }
@@ -107,44 +507,6 @@ AABB Boss::GetAABB()
 	aabb.max = { worldPos.x + kWidth / 2.0f, worldPos.y + kHeight / 2.0f, worldPos.z + kWidth / 2.0f };
 
 	return aabb;
-}
-
-
-void Boss::CheckWallAndReverse() 
-{
-	// 現在位置からAABBを取得
-	AABB aabb = GetAABB();
-
-	// ボスの「足元」のタイルを調べる
-	Vector3 pos = GetWorldPosition();
-
-	// タイル座標に変換
-	MapChipField::IndexSet index = mapChipField_->GetMapChipIndexSetByPosition(pos);
-
-	// 左側のタイル
-	if (velocity_.x < 0) 
-	{
-		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex - 1, index.yIndex) == MapChipType::kBlock) 
-		{
-			velocity_.x = +kWalkSpeed;
-			isFacingRight_ = true;
-		}
-	}
-
-	// 右側のタイル
-	if (velocity_.x > 0) 
-	{
-		if (mapChipField_->GetMapChipTypeByIndex(index.xIndex + 1, index.yIndex) == MapChipType::kBlock) 
-		{
-			velocity_.x = -kWalkSpeed;
-			isFacingRight_ = false;
-		}
-	}
-
-	// モデルの向きを方向に合わせる
-	worldTransform_.rotation_.y = isFacingRight_
-		? std::numbers::pi_v<float> / 2.0f
-		: std::numbers::pi_v<float> *3.0f / 2.0f;
 }
 
 void Boss::OnDamage(int amount)
@@ -198,12 +560,15 @@ void Boss::OnCollision(Player* player)
 void Boss::Draw()
 {
 	// 02_09 スライド9枚目  モデル描画
-	if (isDead == 0)
+	if (!isDead)
 	{
 		model_->Draw(worldTransform_, *camera_);
 	} 
-	else
-	{
 
+	for (Bullet& bullet : bullets_)
+	{
+		bulletModel_->Draw(
+			bullet.worldTransform,
+			*camera_);
 	}
 }

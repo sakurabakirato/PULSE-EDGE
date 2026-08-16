@@ -89,6 +89,7 @@ public:
 
 	// 02_10 21枚目 衝突応答
 	void OnCollision(Boss* boss);
+	void OnBulletCollision() { isDead_ = true; }//ボスの弾の当たり判定
 
 	// 02_12 11枚目 デスフラグ
 	bool IsDead() const { return isDead_; }

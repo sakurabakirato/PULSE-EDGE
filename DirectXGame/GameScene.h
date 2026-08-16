@@ -59,6 +59,7 @@ private:
 	Model* modelSkydome_ = nullptr;
 	Model* modelPlayer_ = nullptr;
 	Model* modelBoss_ = nullptr;
+	Model* modelBossBullet_ = nullptr;
 	Model* deathParticle_model_ = nullptr;
 
 	WorldTransform worldTransform_;
