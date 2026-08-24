@@ -49,10 +49,14 @@ private:
 	// 02_12 4枚目 ゲームの現在フェーズ（変数）
 	Phase phase_;
 
-	////テクスチャーハンドル
+	// HPバー用テクスチャ
 	uint32_t textureHandle_ = 0;
 
+	// 現在HP
 	Sprite* sprite_ = nullptr;
+
+	// HPバーの背景
+	Sprite* hpBarBack_ = nullptr;
 
 	///////////////////////////3Dモデル////////////////////////
 	Model* model_ = nullptr;

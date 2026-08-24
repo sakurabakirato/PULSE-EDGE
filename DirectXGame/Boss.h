@@ -38,10 +38,8 @@ public:
 	enum class Behavior
 	{
 		kUnknown = -1, // 無効な状態
-
 		kWalk,     // 歩数状態
 		kDefeated, // やられ状態
-
 	};
 
 	bool ShouldDropBlock() const { return canBlockAttack_; }
@@ -58,7 +56,14 @@ public:
 
 	bool isDead = false;
 
-	int hp_ = 2;
+	// ボスの最大HP
+	static inline const int kMaxHp = 10;
+
+	// 現在HPを取得
+	int GetHp() const { return hp_; }
+
+	// 最大HPを取得
+	int GetMaxHp() const { return kMaxHp; }
 
 
 private:
@@ -144,6 +149,9 @@ private:
 
 	// 弾を発射
 	void Attack();
+
+	// ボスの現在HP
+	int hp_ = kMaxHp;
 
 };
 

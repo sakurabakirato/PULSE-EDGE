@@ -4,6 +4,8 @@ using namespace KamataEngine;
 
 GameScene::~GameScene() 
 {
+	delete sprite_;
+	delete hpBarBack_;
 	delete debugCamera_;
 	delete model_;
 	delete blockModel_;
@@ -33,13 +35,6 @@ GameScene::~GameScene()
 
 void GameScene::Initialize() 
 {
-	// ここにインゲームの初期化処理を書く
-	// textureHandle_ = TextureManager::Load("player.png");
-
-	////スプライトインスタンスの生成
-	// sprite_ = Sprite::Create(textureHandle_, {100, 50});
-
-	// model_ = Model::Create();
 
 	BGMHandle = Audio::GetInstance()->LoadWave("sound/1123.mp3");
 
@@ -98,6 +93,40 @@ void GameScene::Initialize()
 	//ボスの位置決めてボスクラス初期化
 	Vector3 bossPosition = mapChipField_->GetMapChipPositionByIndex(50, 13);// 中央足場の上から出現
 	boss_->Initialize(modelBoss_, modelBossBullet_, &camera_, mapChipField_, player_, bossPosition);
+
+	//----------------ボスHPバー----------------//
+
+	// 1×1の白い画像を読み込む
+	textureHandle_ =
+		TextureManager::Load("white1x1.png");
+
+	// HPバーの背景
+	hpBarBack_ = Sprite::Create(
+		textureHandle_,
+		{ 390.0f, 40.0f });
+
+	hpBarBack_->SetAnchorPoint({ 0.0f, 0.0f });
+	hpBarBack_->SetSize({ 500.0f, 30.0f });
+	hpBarBack_->SetColor({
+		0.1f,
+		0.1f,
+		0.1f,
+		1.0f
+		});
+
+	// 現在HPを表す赤いバー
+	sprite_ = Sprite::Create(
+		textureHandle_,
+		{ 390.0f, 40.0f });
+
+	sprite_->SetAnchorPoint({ 0.0f, 0.0f });
+	sprite_->SetSize({ 500.0f, 30.0f });
+	sprite_->SetColor({
+		1.0f,
+		0.0f,
+		0.0f,
+		1.0f
+		});
 
 	//-------------デスパーティクル-----------//
 	//モデル読み込み
@@ -188,6 +217,22 @@ void GameScene::Update()
 	// ボス更新
 	boss_->Update();
 
+	//----------------ボスHPバー更新----------------//
+
+	float hpRatio =
+		static_cast<float>(boss_->GetHp()) /
+		static_cast<float>(boss_->GetMaxHp());
+
+	if (hpRatio < 0.0f)
+	{
+		hpRatio = 0.0f;
+	}
+
+	sprite_->SetSize({
+		500.0f * hpRatio,
+		30.0f
+		});
+
 	ChangePhase();
 
 	CheckAllCollisions();
@@ -261,6 +306,16 @@ void GameScene::Draw()
 	}
 
 	Model::PostDraw();
+
+	//----------------ボスHPバー描画----------------//
+
+	Sprite::PreDraw(
+		DirectXCommon::GetInstance()->GetCommandList());
+
+	hpBarBack_->Draw();
+	sprite_->Draw();
+
+	Sprite::PostDraw();
 
 	fade_->Draw();
 }
