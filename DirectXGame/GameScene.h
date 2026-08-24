@@ -33,8 +33,9 @@ public:
 	// 02_12 9枚目
 	void ChangePhase();
 
-	// 02_12 26枚目	デスフラグのgetter
-	bool IsFinished() const { return finished_; }
+	// ボスのHPが0ならゲームクリア
+	bool IsFinished() const { return boss_->IsDead(); }
+	bool IsDead() const { return player_->IsDead(); }
 
 private:
 	enum class Phase 
@@ -84,4 +85,9 @@ private:
 
 	// 02_12 26枚目
 	bool finished_ = false;
+
+	//BGM
+	uint32_t BGMHandle = 0;
+	uint32_t voiceHandle = 0;
+
 };

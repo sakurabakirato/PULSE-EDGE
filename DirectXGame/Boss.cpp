@@ -512,8 +512,10 @@ AABB Boss::GetAABB()
 void Boss::OnDamage(int amount)
 {
 	hp_ -= amount;
-	if (hp_ == 0) 
+
+	if (hp_ <= 0)
 	{
+		hp_ = 0;
 		isDead = true;
 	}
 }
@@ -537,22 +539,35 @@ void Boss::OnCollision(Player* player)
 {
 	(void)player;
 
-	// desu
-	if (behavior == Behavior::kDefeated)
+	//// desu
+	//if (behavior == Behavior::kDefeated)
+	//{
+	//	return;
+	//}
+	//if (player->IsAttack())
+	//{
+
+	//	if (gameScene == 1)
+	//	{
+	//		//敵と自キャラの中間位置にエフェクトを生成
+	//		//Vector3 effectPos = ((GetWorldPosition() + player_->GetWorldPosition())/2.0f);
+	//	}
+	//	behaviorRequest = Behavior::kDefeated;
+	//	isCollisionDisabled = true;
+	//}
+	if (!player)
 	{
 		return;
 	}
-	isDead = true;
+
+	if (IsDead())
+	{
+		return;
+	}
+
 	if (player->IsAttack())
 	{
-
-		if (gameScene == 1)
-		{
-			//敵と自キャラの中間位置にエフェクトを生成
-			//Vector3 effectPos = ((GetWorldPosition() + player_->GetWorldPosition())/2.0f);
-		}
-		behaviorRequest = Behavior::kDefeated;
-		isCollisionDisabled = true;
+		OnDamage(1);
 	}
 }
 

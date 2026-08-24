@@ -86,6 +86,8 @@ public:
 
 	// AABBを取得
 	AABB GetAABB();
+	// 攻撃判定を取得
+	AABB GetAttackAABB();
 
 	// 02_10 21枚目 衝突応答
 	void OnCollision(Boss* boss);

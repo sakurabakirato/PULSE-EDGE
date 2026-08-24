@@ -31,7 +31,8 @@ GameScene::~GameScene()
 	delete fade_;
 }
 
-void GameScene::Initialize() {
+void GameScene::Initialize() 
+{
 	// ここにインゲームの初期化処理を書く
 	// textureHandle_ = TextureManager::Load("player.png");
 
@@ -40,10 +41,16 @@ void GameScene::Initialize() {
 
 	// model_ = Model::Create();
 
+	BGMHandle = Audio::GetInstance()->LoadWave("sound/1123.mp3");
+
 	blockModel_ = Model::CreateFromOBJ("block");
 
 	debugCamera_ = new DebugCamera(1280, 720);
 
+	mapChipField_ = new MapChipField;
+	mapChipField_->LoadMapChipCsv("Resources/blocks_csv/blocks.csv");
+
+	//-----------------自キャラ------------------//
 	// 自キャラの生成
 	player_ = new Player();
 
@@ -51,15 +58,16 @@ void GameScene::Initialize() {
 	Vector3 playerPosition = mapChipField_->GetMapChipPositionByIndex(1, 18);
 
 	modelPlayer_ = Model::CreateFromOBJ("player", true);
-
 	// 自キャラの初期化
 	player_->Initialize(modelPlayer_, &camera_, playerPosition);
+	// マップチップフィールドの生成と初期化
+    // 自キャラの生成と初期化
+	player_->SetMapChipField(mapChipField_);
 
 	worldTransform_.Initialize();
 
 	// カメラの初期化
 	camera_.Initialize();
-
 	camera_.farZ = 1000.0f;
 
 	// 02_03天球
@@ -69,8 +77,6 @@ void GameScene::Initialize() {
 	modelSkydome_ = Model::CreateFromOBJ("skyDome", true);
 	skydome_->Initialize(modelSkydome_, &camera_);
 
-	mapChipField_ = new MapChipField;
-	mapChipField_->LoadMapChipCsv("Resources/blocks_csv/blocks.csv");
 
 	GenerateBlocks();
 
@@ -81,10 +87,6 @@ void GameScene::Initialize() {
 
 	CameraController::Rect cameraArea = {12.0f, 100 - 12.0f, 6.0f, 6.0f};
 	CController_->SetMovableArea(cameraArea);
-
-	// マップチップフィールドの生成と初期化
-	// 自キャラの生成と初期化
-	player_->SetMapChipField(mapChipField_);
 
 
 	//---------------ボスクラス--------------//
@@ -97,16 +99,16 @@ void GameScene::Initialize() {
 	Vector3 bossPosition = mapChipField_->GetMapChipPositionByIndex(50, 13);// 中央足場の上から出現
 	boss_->Initialize(modelBoss_, modelBossBullet_, &camera_, mapChipField_, player_, bossPosition);
 
-	// 02_11_16枚目 モデル読み込み
+	//-------------デスパーティクル-----------//
+	//モデル読み込み
 	deathParticle_model_ = Model::CreateFromOBJ("deathParticle");
-
-	// 02_11_16枚目 仮の生成処理 後で消す
 	deathParticles_ = new DeathParticles;
 	deathParticles_->Initialize(deathParticle_model_, &camera_, playerPosition);
 
 	// 02_12 4枚目 ゲームプレイフェーズから開始
 	phase_ = Phase::kFadeIn;
 
+	//---------------fade------------------//
 	fade_ = new Fade();
 	fade_->Initialize();
 	fade_->Start(Fade::Status::FadeIn, 1.0f);
@@ -266,30 +268,31 @@ void GameScene::Draw()
 //自キャラとボスの当たり判定
 void GameScene::CheckAllCollisions() 
 {
-	// 判定対象1と2の座標
-	AABB aabb1, aabb2;
-
 #pragma region 自キャラとボスの当たり判定
+	// ボスが死亡している場合は判定しない
+	if (boss_->IsDead())
 	{
-		if (!boss_->IsDead())   // これを追加！
+		return;
+	}
+
+	// プレイヤー本体とボス本体の当たり判定
+	AABB playerAABB = player_->GetAABB();
+	AABB bossAABB = boss_->GetAABB();
+
+	if (IsCollision(playerAABB, bossAABB))
+	{
+		player_->OnCollision(boss_);
+	}
+
+	// Jキーを押した瞬間だけ攻撃判定
+	if (player_->IsAttack())
+	{
+		AABB attackAABB = player_->GetAttackAABB();
+
+		if (IsCollision(attackAABB, bossAABB))
 		{
-			if (boss_->isDead == 1)
-			{
-				// 死んでいる敵は当たり判定を行わない
-				return; // ここで現在の処理を終了
-			}
-
-			// 自キャラの座標
-			aabb1 = player_->GetAABB();
-			// ボスの座標
-			aabb2 = boss_->GetAABB();
-
-			// AABB同士の交差判定
-			if (IsCollision(aabb1, aabb2))
-			{
-				player_->OnCollision(boss_);
-				boss_->OnCollision(player_);
-			}
+			// ボスへ1ダメージ
+			boss_->OnDamage(1);
 		}
 	}
 #pragma endregion

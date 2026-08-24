@@ -493,9 +493,49 @@ AABB Player::GetAABB()
 	return aabb;
 }
 
+AABB Player::GetAttackAABB()
+{
+	Vector3 worldPosition = GetWorldPosition();
+
+	// 攻撃判定の中心
+	Vector3 attackPosition = worldPosition;
+
+	// 向いている方向へ攻撃判定を移動
+	if (lrDirection_ == LRDirection::kRight)
+	{
+		attackPosition.x += 0.9f;
+	} 
+	else
+	{
+		attackPosition.x -= 0.9f;
+	}
+
+	// 攻撃判定の大きさ
+	const float attackHalfWidth = 0.75f;
+	const float attackHalfHeight = 0.5f;
+	const float attackHalfDepth = 0.5f;
+
+	AABB attackAABB = {};
+
+	attackAABB.min = {
+		attackPosition.x - attackHalfWidth,
+		attackPosition.y - attackHalfHeight,
+		attackPosition.z - attackHalfDepth
+	};
+
+	attackAABB.max = {
+		attackPosition.x + attackHalfWidth,
+		attackPosition.y + attackHalfHeight,
+		attackPosition.z + attackHalfDepth
+	};
+
+	return attackAABB;
+}
+
 bool Player::IsAttack()
 {
-	if (behavior_ == Behavior::kAttack)
+	// Jキーを押した瞬間だけ攻撃状態
+	if (Input::GetInstance()->TriggerKey(DIK_J))
 	{
 		return true;
 	}
@@ -507,19 +547,8 @@ void Player::OnCollision(Boss* boss)
 	if (!boss)
 	{
 		return;
-	} 
-	// 念のため
-	// 攻撃中なら敵を倒す
-	if (IsAttack())
-	{
-		// ボスが死んでいるならダメージを受けない
-		if (boss->hp_ == 0)
-		{
-			boss->isDead = true;
-		}
-
-		return;
 	}
 
+	// ボス本体に接触したら死亡
 	isDead_ = true;
 }

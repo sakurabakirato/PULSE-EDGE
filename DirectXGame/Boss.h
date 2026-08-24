@@ -47,7 +47,8 @@ public:
 	bool ShouldDropBlock() const { return canBlockAttack_; }
 	void ConsumeBlockAttack() { canBlockAttack_ = false; }
 
-	bool IsDead() const { return hp_ == 0; }
+	//ボスのHPが0以下なら死ぬ
+	bool IsDead() const { return hp_ <= 0; }
 
 	void OnDamage(int amount);
 
