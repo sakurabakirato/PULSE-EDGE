@@ -76,7 +76,7 @@ private:
 	Camera* camera_ = nullptr;
 
 	// 02_09 15枚目
-	static inline const float kWalkSpeed = 0.1f;
+	static inline const float kWalkSpeed = 0.2f;
 	// 02_09 15枚目
 	Vector3 velocity_ = {};
 
@@ -133,7 +133,12 @@ private:
 		WorldTransform worldTransform;
 		Vector3 velocity = {};
 		float lifeTimer = 0.0f;
+
+		// 発射までの待ち時間
+		float launchDelay = 0.0f;
+
 		bool homing = false;
+		bool exploding = false;
 	};
 
 	Model* bulletModel_ = nullptr;

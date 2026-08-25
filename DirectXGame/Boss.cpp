@@ -127,50 +127,62 @@ void Boss::Attack()
 	if (attackType_ == 1)
 	{
 		const int bulletCount = 5;
-		const float bulletSpeed = 0.10f;
 
-		Vector3 direction = {};
-		direction.x = playerPosition.x - bossPosition.x;
-		direction.y = playerPosition.y - bossPosition.y;
+		// 弾ごとに発射タイミングを変える
+		float launchDelays[bulletCount] = {
+			0.00f,
+			0.12f,
+			0.28f,
+			0.46f,
+			0.68f
+		};
 
-		float distance = std::sqrt(
-			direction.x * direction.x +
-			direction.y * direction.y);
+		// 弾ごとに左右の広がりを変える
+		float sideSpeeds[bulletCount] = {
+			-0.07f,
+			-0.035f,
+			0.0f,
+			0.035f,
+			0.07f
+		};
 
-		if (distance > 0.0f)
-		{
-			direction.x /= distance;
-			direction.y /= distance;
-		}
+		// 弾ごとに上方向の速度を変える
+		float upSpeeds[bulletCount] = {
+			0.17f,
+			0.20f,
+			0.18f,
+			0.21f,
+			0.19f
+		};
 
 		for (int i = 0; i < bulletCount; ++i)
 		{
-			float angle =
-				(static_cast<float>(i) - 2.0f) * 0.25f;
-
-			float rotatedX =
-				direction.x * std::cos(angle) -
-				direction.y * std::sin(angle);
-
-			float rotatedY =
-				direction.x * std::sin(angle) +
-				direction.y * std::cos(angle);
-
 			bullets_.emplace_back();
 			Bullet& bullet = bullets_.back();
 
 			bullet.worldTransform.Initialize();
-			bullet.worldTransform.translation_ = bossPosition;
+
+			// ボスより少し上から発射
+			bullet.worldTransform.translation_ =
+				bossPosition;
+
+			bullet.worldTransform.translation_.y += 0.6f;
+
 			bullet.worldTransform.scale_ = {
-				0.3f, 0.3f, 0.3f
+				0.3f,
+				0.3f,
+				0.3f
 			};
 
-			bullet.velocity.x = rotatedX * bulletSpeed;
-			bullet.velocity.y = rotatedY * bulletSpeed;
+			// 最初は斜め上へ飛ばす
+			bullet.velocity.x = sideSpeeds[i];
+			bullet.velocity.y = upSpeeds[i];
 			bullet.velocity.z = 0.0f;
 
-			bullet.homing = true;
+			bullet.launchDelay = launchDelays[i];
 			bullet.lifeTimer = 0.0f;
+			bullet.homing = true;
+			bullet.exploding = false;
 		}
 	}
 
@@ -254,6 +266,15 @@ void Boss::Attack()
 // 02_09 スライド5枚目
 void Boss::Update() 
 {
+
+	// ボス死亡後は移動と攻撃を更新しない
+	if (IsDead())
+	{
+		return;
+	}
+
+
+
 	// 振る舞いの変更
 	if (behaviorRequest != Behavior::kUnknown)
 	{
@@ -394,99 +415,220 @@ void Boss::Update()
 	{
 		Bullet& bullet = *bulletIterator;
 
-		// ホーミング弾
-		if (bullet.homing)
+		bool eraseBullet = false;
+
+		// まだ発射時刻になっていない
+		if (bullet.launchDelay > 0.0f)
 		{
-			Vector3 playerPosition = player_->GetWorldPosition();
+			bullet.launchDelay -= 1.0f / 60.0f;
 
-			Vector3 direction = {};
-			direction.x =
-				playerPosition.x -
-				bullet.worldTransform.translation_.x;
-
-			direction.y =
-				playerPosition.y -
-				bullet.worldTransform.translation_.y;
-
-			float distance = std::sqrt(
-				direction.x * direction.x +
-				direction.y * direction.y);
-
-			if (distance > 0.0f)
+			if (bullet.launchDelay < 0.0f)
 			{
-				direction.x /= distance;
-				direction.y /= distance;
-
-				const float homingSpeed = 0.13f;
-
-				// 急に曲がらず、少しずつ進行方向を変える
-				bullet.velocity.x =
-					bullet.velocity.x * 0.95f +
-					direction.x * homingSpeed * 0.05f;
-
-				bullet.velocity.y =
-					bullet.velocity.y * 0.95f +
-					direction.y * homingSpeed * 0.05f;
-
-				float velocityLength = std::sqrt(
-					bullet.velocity.x * bullet.velocity.x +
-					bullet.velocity.y * bullet.velocity.y);
-
-				if (velocityLength > 0.0f)
-				{
-					bullet.velocity.x =
-						bullet.velocity.x /
-						velocityLength * homingSpeed;
-
-					bullet.velocity.y =
-						bullet.velocity.y /
-						velocityLength * homingSpeed;
-				}
+				bullet.launchDelay = 0.0f;
 			}
+
+			++bulletIterator;
+			continue;
 		}
 
-		bullet.worldTransform.translation_ += bullet.velocity;
+		// 爆発していない弾
+		if (!bullet.exploding)
+		{
+			// 発射後0.35秒は上昇し、その後1.45秒だけ追尾
+			if (bullet.homing &&
+				bullet.lifeTimer >= 0.35f &&
+				bullet.lifeTimer < 1.8f)
+			{
+
+				Vector3 playerPosition =
+					player_->GetWorldPosition();
+
+				Vector3 direction = {};
+
+				direction.x =
+					playerPosition.x -
+					bullet.worldTransform.translation_.x;
+
+				direction.y =
+					playerPosition.y -
+					bullet.worldTransform.translation_.y;
+
+				float distance = std::sqrt(
+					direction.x * direction.x +
+					direction.y * direction.y);
+
+				if (distance > 0.0f)
+				{
+					direction.x /= distance;
+					direction.y /= distance;
+
+					// 現在の弾速を維持
+					float homingSpeed = std::sqrt(
+						bullet.velocity.x *
+						bullet.velocity.x +
+						bullet.velocity.y *
+						bullet.velocity.y);
+
+					// 少しずつプレイヤー方向へ曲げる
+					bullet.velocity.x =
+						bullet.velocity.x * 0.96f +
+						direction.x *
+						homingSpeed * 0.04f;
+
+					bullet.velocity.y =
+						bullet.velocity.y * 0.96f +
+						direction.y *
+						homingSpeed * 0.04f;
+
+					float velocityLength = std::sqrt(
+						bullet.velocity.x *
+						bullet.velocity.x +
+						bullet.velocity.y *
+						bullet.velocity.y);
+
+					if (velocityLength > 0.0f)
+					{
+						bullet.velocity.x =
+							bullet.velocity.x /
+							velocityLength *
+							homingSpeed;
+
+						bullet.velocity.y =
+							bullet.velocity.y /
+							velocityLength *
+							homingSpeed;
+					}
+				}
+			}
+		
+			// 移動前の位置を保存
+			Vector3 previousPosition =
+				bullet.worldTransform.translation_;
+
+			// 弾を移動
+			bullet.worldTransform.translation_ +=
+				bullet.velocity;
+
+			// ホーミング弾だけ地形との接触を確認
+			if (bullet.homing)
+			{
+				MapChipField::IndexSet index =
+					mapChipField_->
+					GetMapChipIndexSetByPosition(
+						bullet.worldTransform.translation_);
+
+				MapChipType mapChipType =
+					mapChipField_->
+					GetMapChipTypeByIndex(
+						index.xIndex,
+						index.yIndex);
+
+				// 地面または足場に着弾
+				if (mapChipType == MapChipType::kBlock)
+				{
+					// ブロックの中へ入らないように戻す
+					bullet.worldTransform.translation_ =
+						previousPosition;
+
+					bullet.velocity = {
+						0.0f,
+						0.0f,
+						0.0f
+					};
+
+					// 爆発開始
+					bullet.exploding = true;
+
+					// 同じタイマーを爆発時間に再利用
+					bullet.lifeTimer = 0.0f;
+
+					bullet.worldTransform.scale_ = {
+						0.3f,
+						0.3f,
+						0.3f
+					};
+				}
+			}
+		} 
+        else
+		{
+			// 爆発中は球を大きくする
+			bullet.worldTransform.scale_.x += 0.06f;
+			bullet.worldTransform.scale_.y += 0.06f;
+			bullet.worldTransform.scale_.z += 0.06f;
+		}
+
 		bullet.lifeTimer += 1.0f / 60.0f;
 
-		bullet.worldTransform.matWorld_ = MakeAffineMatrix(
-			bullet.worldTransform.scale_,
-			bullet.worldTransform.rotation_,
-			bullet.worldTransform.translation_);
+		// ワールド行列を更新
+		bullet.worldTransform.matWorld_ =
+			MakeAffineMatrix(
+				bullet.worldTransform.scale_,
+				bullet.worldTransform.rotation_,
+				bullet.worldTransform.translation_);
 
 		bullet.worldTransform.TransferMatrix();
 
-		// プレイヤーとの当たり判定
+		// 通常弾の当たり判定サイズ
+		float bulletHalfSize = 0.25f;
+
+		// 爆発中は見た目に合わせて当たり判定を拡大
+		if (bullet.exploding)
+		{
+			bulletHalfSize =
+				bullet.worldTransform.scale_.x;
+		}
+
 		AABB bulletAABB = {};
 
 		bulletAABB.min = {
-			bullet.worldTransform.translation_.x - 0.25f,
-			bullet.worldTransform.translation_.y - 0.25f,
-			bullet.worldTransform.translation_.z - 0.25f
+			bullet.worldTransform.translation_.x -
+				bulletHalfSize,
+			bullet.worldTransform.translation_.y -
+				bulletHalfSize,
+			bullet.worldTransform.translation_.z -
+				bulletHalfSize
 		};
 
 		bulletAABB.max = {
-			bullet.worldTransform.translation_.x + 0.25f,
-			bullet.worldTransform.translation_.y + 0.25f,
-			bullet.worldTransform.translation_.z + 0.25f
+			bullet.worldTransform.translation_.x +
+				bulletHalfSize,
+			bullet.worldTransform.translation_.y +
+				bulletHalfSize,
+			bullet.worldTransform.translation_.z +
+				bulletHalfSize
 		};
 
-		bool eraseBullet = false;
-
-		if (IsCollision(bulletAABB, player_->GetAABB()))
+		// 弾または爆発とプレイヤーの判定
+		if (IsCollision(
+			bulletAABB,
+			player_->GetAABB()))
 		{
 			player_->OnBulletCollision();
 			eraseBullet = true;
 		}
 
-		// 8秒経過した弾を削除
-		if (bullet.lifeTimer >= 8.0f)
+		if (bullet.exploding)
 		{
-			eraseBullet = true;
+			// 爆発は0.4秒で終了
+			if (bullet.lifeTimer >= 0.4f)
+			{
+				eraseBullet = true;
+			}
+		} 
+		else
+		{
+			// 通常状態の弾は8秒で消す
+			if (bullet.lifeTimer >= 8.0f)
+			{
+				eraseBullet = true;
+			}
 		}
 
 		if (eraseBullet)
 		{
-			bulletIterator = bullets_.erase(bulletIterator);
+			bulletIterator =
+				bullets_.erase(bulletIterator);
 		} 
 		else
 		{
@@ -517,6 +659,9 @@ void Boss::OnDamage(int amount)
 	{
 		hp_ = 0;
 		isDead = true;
+
+		// ボス撃破時に残っている弾を消す
+		bullets_.clear();
 	}
 }
 
@@ -539,22 +684,6 @@ void Boss::OnCollision(Player* player)
 {
 	(void)player;
 
-	//// desu
-	//if (behavior == Behavior::kDefeated)
-	//{
-	//	return;
-	//}
-	//if (player->IsAttack())
-	//{
-
-	//	if (gameScene == 1)
-	//	{
-	//		//敵と自キャラの中間位置にエフェクトを生成
-	//		//Vector3 effectPos = ((GetWorldPosition() + player_->GetWorldPosition())/2.0f);
-	//	}
-	//	behaviorRequest = Behavior::kDefeated;
-	//	isCollisionDisabled = true;
-	//}
 	if (!player)
 	{
 		return;
@@ -582,6 +711,12 @@ void Boss::Draw()
 
 	for (Bullet& bullet : bullets_)
 	{
+		// 発射時刻になっていない弾は表示しない
+		if (bullet.launchDelay > 0.0f)
+		{
+			continue;
+		}
+
 		bulletModel_->Draw(
 			bullet.worldTransform,
 			*camera_);
