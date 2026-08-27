@@ -6,6 +6,8 @@ GameScene::~GameScene()
 {
 	delete sprite_;
 	delete hpBarBack_;
+	delete playerHpBar_;
+	delete playerHpBarBack_;
 	delete debugCamera_;
 	delete model_;
 	delete blockModel_;
@@ -128,6 +130,34 @@ void GameScene::Initialize()
 		1.0f
 		});
 
+	//----------------プレイヤーHPバー----------------//
+
+	playerHpBarBack_ = Sprite::Create(
+		textureHandle_,
+		{40.0f, 660.0f });
+
+	playerHpBarBack_->SetAnchorPoint({0.0f, 0.0f});
+	playerHpBarBack_->SetSize({250.0f, 20.0f});
+	playerHpBarBack_->SetColor({
+		0.1f,
+		0.1f,
+		0.1f,
+		1.0f
+		});
+
+	playerHpBar_ = Sprite::Create(
+		textureHandle_,
+		{40.0f, 660.0f });
+
+	playerHpBar_->SetAnchorPoint({0.0f, 0.0f});
+	playerHpBar_->SetSize({250.0f, 20.0f});
+	playerHpBar_->SetColor({
+		0.0f,
+		0.8f,
+		0.2f,
+		1.0f
+		});
+
 	//-------------デスパーティクル-----------//
 	//モデル読み込み
 	deathParticle_model_ = Model::CreateFromOBJ("deathParticle");
@@ -233,6 +263,19 @@ void GameScene::Update()
 		30.0f
 		});
 
+	float playerHpRatio =
+		static_cast<float>(player_->GetHp()) / 3.0f;
+
+	if (playerHpRatio < 0.0f)
+	{
+		playerHpRatio = 0.0f;
+	}
+
+	playerHpBar_->SetSize({
+		250.0f * playerHpRatio,
+		20.0f
+		});
+
 	ChangePhase();
 
 	CheckAllCollisions();
@@ -314,6 +357,8 @@ void GameScene::Draw()
 
 	hpBarBack_->Draw();
 	sprite_->Draw();
+	playerHpBarBack_->Draw();
+	playerHpBar_->Draw();
 
 	Sprite::PostDraw();
 

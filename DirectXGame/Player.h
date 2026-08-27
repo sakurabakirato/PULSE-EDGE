@@ -91,10 +91,11 @@ public:
 
 	// 02_10 21枚目 衝突応答
 	void OnCollision(Boss* boss);
-	void OnBulletCollision() { isDead_ = true; }//ボスの弾の当たり判定
+	void OnBulletCollision(); // ボスの弾の当たり判定
 
 	// 02_12 11枚目 デスフラグ
 	bool IsDead() const { return isDead_; }
+	int GetHp() const { return hp_; }
 
 	// 通常行動初期化
 	void BehaviorRootInitialize();
@@ -228,4 +229,10 @@ private:
 
 	// 02_12 11枚目 デスフラグ
 	bool isDead_ = false;
+
+	// プレイヤーのHP
+	int hp_ = 3;
+
+	// 被弾後の無敵時間
+	float invincibleTimer_ = 0.0f;
 };

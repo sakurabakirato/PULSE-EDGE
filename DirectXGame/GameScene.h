@@ -58,6 +58,10 @@ private:
 	// HPバーの背景
 	Sprite* hpBarBack_ = nullptr;
 
+	// プレイヤーHPバー
+	Sprite* playerHpBar_ = nullptr;
+	Sprite* playerHpBarBack_ = nullptr;
+
 	///////////////////////////3Dモデル////////////////////////
 	Model* model_ = nullptr;
 	Model* blockModel_ = nullptr;

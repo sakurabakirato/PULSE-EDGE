@@ -421,6 +421,16 @@ Vector3 Player::CornerPosition(const Vector3& center, Corner corner)
 
 void Player::Update() 
 {
+	// 被弾後の無敵時間を減らす
+	if (invincibleTimer_ > 0.0f)
+	{
+		invincibleTimer_ -= 1.0f / 60.0f;
+
+		if (invincibleTimer_ < 0.0f)
+		{
+			invincibleTimer_ = 0.0f;
+		}
+	}
 
 	// 移動入力(02_07 スライド10枚目)
 	InputMove();
@@ -466,6 +476,15 @@ void Player::Update()
 
 void Player::Draw() 
 {
+	// 無敵時間中はプレイヤーを点滅させる
+	if (invincibleTimer_ > 0.0f)
+	{
+		if (static_cast<int>(invincibleTimer_ * 20.0f) % 2 == 0)
+		{
+			return;
+		}
+	}
+
 	model_->Draw(worldTransform_, *camera_); 
 }
 
@@ -549,6 +568,24 @@ void Player::OnCollision(Boss* boss)
 		return;
 	}
 
-	// ボス本体に接触したら死亡
-	isDead_ = true;
+	// ボス本体との接触も弾と同じダメージ
+	OnBulletCollision();
+}
+
+void Player::OnBulletCollision()
+{
+	// 無敵時間中はダメージを受けない
+	if (invincibleTimer_ > 0.0f || isDead_)
+	{
+		return;
+	}
+
+	hp_ -= 1;
+	invincibleTimer_ = 1.0f;
+
+	if (hp_ <= 0)
+	{
+		hp_ = 0;
+		isDead_ = true;
+	}
 }

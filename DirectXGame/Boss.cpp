@@ -169,9 +169,9 @@ void Boss::Attack()
 			bullet.worldTransform.translation_.y += 0.6f;
 
 			bullet.worldTransform.scale_ = {
-				0.3f,
-				0.3f,
-				0.3f
+				0.45f,
+				0.45f,
+				0.45f
 			};
 
 			// 最初は斜め上へ飛ばす
@@ -523,30 +523,40 @@ void Boss::Update()
 						index.xIndex,
 						index.yIndex);
 
-				// 地面または足場に着弾
-				if (mapChipType == MapChipType::kBlock)
+				// 下降中にブロックの上面へ触れた場合だけ着弾
+				if (mapChipType == MapChipType::kBlock &&
+					bullet.velocity.y < 0.0f)
 				{
-					// ブロックの中へ入らないように戻す
-					bullet.worldTransform.translation_ =
-						previousPosition;
+					MapChipField::Rect blockRect =
+						mapChipField_->GetRectByIndex(
+							index.xIndex,
+							index.yIndex);
 
-					bullet.velocity = {
-						0.0f,
-						0.0f,
-						0.0f
-					};
+					// 横から壁へ入った場合は通過させる
+					if (previousPosition.y >= blockRect.top)
+					{
+						// ブロックの上面へ着弾位置を合わせる
+						bullet.worldTransform.translation_.y =
+							blockRect.top + 0.25f;
 
-					// 爆発開始
-					bullet.exploding = true;
+						bullet.velocity = {
+							0.0f,
+							0.0f,
+							0.0f
+						};
 
-					// 同じタイマーを爆発時間に再利用
-					bullet.lifeTimer = 0.0f;
+						// 爆発開始
+						bullet.exploding = true;
 
-					bullet.worldTransform.scale_ = {
-						0.3f,
-						0.3f,
-						0.3f
-					};
+						// 同じタイマーを爆発時間に再利用
+						bullet.lifeTimer = 0.0f;
+
+						bullet.worldTransform.scale_ = {
+							0.45f,
+							0.45f,
+							0.45f
+						};
+					}
 				}
 			}
 		} 
