@@ -37,12 +37,13 @@
 #include <math\Vector3.h>
 #include <math\Vector4.h>
 
-namespace KamataEngine {
+namespace KamataEngine 
+{
 /// <summary>
 /// エンジンの初期化
 /// </summary>
 /// <param name="title">ウィンドウタイトル</param>
-void Initialize(const std::wstring& title = L"LE2X_99_カマタ_タロウ", bool enableDebugLayer = false);
+void Initialize(const std::wstring& title = L"basic", bool enableDebugLayer = false);
 
 /// <summary>
 /// エンジンの終了処理

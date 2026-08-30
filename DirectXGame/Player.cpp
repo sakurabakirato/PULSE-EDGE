@@ -10,6 +10,11 @@
 
 using namespace KamataEngine;
 
+Player::~Player()
+{
+	delete modelAttack;
+}
+
 void Player::Initialize(Model* model, Camera* camera, const Vector3& position) 
 {
 	assert(model);
@@ -20,76 +25,111 @@ void Player::Initialize(Model* model, Camera* camera, const Vector3& position)
 	worldTransform_.Initialize();
 	worldTransform_.translation_ = position;
 	worldTransform_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
+
+	// 攻撃エフェクトには追加素材が不要な球モデルを使用
+	modelAttack = Model::CreateSphere(8, 8);
+	worldTransformAttack.Initialize();
+	attackEffectTimer_ = 0.0f;
+
+	isDashing_ = false;
+	dashTimer_ = 0.0f;
+	dashCooldownTimer_ = 0.0f;
+	airDashUsed_ = false;
 }
 
 void Player::InputMove() 
 {
-	if (onGround_) 
+	// ダッシュ中は向いている方向へ一定速度で進む
+	if (isDashing_)
 	{
-
-		// 左右操作
-		if (Input::GetInstance()->PushKey(DIK_D) || Input::GetInstance()->PushKey(DIK_A)) 
+		if (lrDirection_ == LRDirection::kRight)
 		{
-			// 左右加速
-			Vector3 acceleration = {};
-			if (Input::GetInstance()->PushKey(DIK_D)) 
-			{
-				if (velocity_.x < 0.0f) 
-				{
-					velocity_.x *= (1.0f - kAttenuation);
-				}
-				acceleration.x += kAcceleration / 60.0f;
-				if (lrDirection_ != LRDirection::kRight) 
-				{
-					lrDirection_ = LRDirection::kRight;
-
-					turnFirstRotationY_ = worldTransform_.rotation_.y;
-					turnTimer_ = kTimeTurn;
-				}
-
-			} 
-			else if (Input::GetInstance()->PushKey(DIK_A)) 
-			{
-				if (velocity_.x > 0.0f) 
-				{
-					velocity_.x *= (1.0f - kAttenuation);
-				}
-				acceleration.x -= kAcceleration / 60.0f;
-				if (lrDirection_ != LRDirection::kLeft) 
-				{
-					lrDirection_ = LRDirection::kLeft;
-
-					turnFirstRotationY_ = worldTransform_.rotation_.y;
-					turnTimer_ = kTimeTurn;
-				}
-			}
-			velocity_ = Add(velocity_, acceleration);
-
-			velocity_.x = std::clamp(velocity_.x, -kLimitRunSpeed, kLimitRunSpeed);
-		} 
-		else 
+			velocity_.x = kDashSpeed;
+		}
+		else
 		{
-			// 非入力時は移動減衰をかける
-			velocity_.x *= (1.0f - kAcceleration);
+			velocity_.x = -kDashSpeed;
 		}
 
-		// ほぼ0の場合に0にする
-		if (std::abs(velocity_.x) <= 0.0001f) 
+		velocity_.y = 0.0f;
+		return;
+	}
+
+	// 左Shiftを押すと回避ダッシュを開始
+	if (Input::GetInstance()->TriggerKey(DIK_LSHIFT) &&
+		dashCooldownTimer_ <= 0.0f &&
+		!airDashUsed_)
+	{
+		isDashing_ = true;
+		dashTimer_ = kDashDuration;
+		dashCooldownTimer_ = kDashCooldown;
+
+		if (!onGround_)
 		{
-			velocity_.x = 0.0f;
+			airDashUsed_ = true;
 		}
 
-		if (Input::GetInstance()->PushKey(DIK_SPACE)) 
+		if (lrDirection_ == LRDirection::kRight)
 		{
-			// ジャンプ初速
-			velocity_ = Add(Vector3(0, kJumpAcceleration / 60.0f, 0), velocity_);
+			velocity_.x = kDashSpeed;
+		}
+		else
+		{
+			velocity_.x = -kDashSpeed;
+		}
+
+		velocity_.y = 0.0f;
+		return;
+	}
+
+	// 地上・空中共通の左右操作
+	if (Input::GetInstance()->PushKey(DIK_D)) 
+	{
+		// 押した瞬間に右方向の最高速度へ切り替える
+		velocity_.x = kLimitRunSpeed;
+
+		if (lrDirection_ != LRDirection::kRight) 
+		{
+			lrDirection_ = LRDirection::kRight;
+
+			turnFirstRotationY_ = worldTransform_.rotation_.y;
+			turnTimer_ = kTimeTurn;
 		}
 	} 
-	else 
+	else if (Input::GetInstance()->PushKey(DIK_A)) 
+	{
+		// 押した瞬間に左方向の最高速度へ切り替える
+		velocity_.x = -kLimitRunSpeed;
+
+		if (lrDirection_ != LRDirection::kLeft) 
+		{
+			lrDirection_ = LRDirection::kLeft;
+
+			turnFirstRotationY_ = worldTransform_.rotation_.y;
+			turnTimer_ = kTimeTurn;
+		}
+	}
+	else if (onGround_) 
+	{
+		// 地上ではキーを離した瞬間に停止する
+		velocity_.x = 0.0f;
+	}
+
+	if (!onGround_) 
 	{
 		// 落下速度
 		velocity_ = Add(Vector3(0, -kGravityAcceleration / 60.0f, 0), velocity_);
 		velocity_.y = std::max(velocity_.y, -kLimitFallSpeed);
+	}
+
+	// スペースを押した瞬間だけジャンプする
+	if (Input::GetInstance()->TriggerKey(DIK_SPACE) &&
+		jumpCount_ < 2) 
+	{
+		// 1回目と2回目を同じ上向き速度で開始する
+		velocity_.y = kJumpAcceleration / 60.0f;
+		onGround_ = false;
+		jumpCount_++;
 	}
 }
 
@@ -261,6 +301,12 @@ void Player::UpdateOnGround(const CollisionMapInfo& info)
 			{
 				// 空中状態に切り替える
 				onGround_ = false;
+
+				// 足場から落ちた場合は地上ジャンプを使用済みにする
+				if (jumpCount_ == 0) 
+				{
+					jumpCount_ = 1;
+				}
 			}
 		}
 
@@ -273,6 +319,10 @@ void Player::UpdateOnGround(const CollisionMapInfo& info)
 		{
 			// 接地状態に切り替える（落下を止める）
 			onGround_ = true;
+			// 着地したため二段ジャンプの回数を戻す
+			jumpCount_ = 0;
+			// 着地したため空中ダッシュを再使用可能にする
+			airDashUsed_ = false;
 			// 接地時にX速度を減衰
 			velocity_.x *= (1.0f - kAttenuationLanding);
 			// Y速度をゼロにする
@@ -421,6 +471,33 @@ Vector3 Player::CornerPosition(const Vector3& center, Corner corner)
 
 void Player::Update() 
 {
+	// Jキーを押した瞬間に攻撃エフェクトを開始
+	if (Input::GetInstance()->TriggerKey(DIK_J))
+	{
+		attackEffectTimer_ = kAttackEffectDuration;
+	}
+
+	if (attackEffectTimer_ > 0.0f)
+	{
+		attackEffectTimer_ -= 1.0f / 60.0f;
+
+		if (attackEffectTimer_ < 0.0f)
+		{
+			attackEffectTimer_ = 0.0f;
+		}
+	}
+
+	// ダッシュの再使用待ち時間を減らす
+	if (dashCooldownTimer_ > 0.0f)
+	{
+		dashCooldownTimer_ -= 1.0f / 60.0f;
+
+		if (dashCooldownTimer_ < 0.0f)
+		{
+			dashCooldownTimer_ = 0.0f;
+		}
+	}
+
 	// 被弾後の無敵時間を減らす
 	if (invincibleTimer_ > 0.0f)
 	{
@@ -458,6 +535,33 @@ void Player::Update()
 	// 接地判定
 	UpdateOnGround(collisionMapInfo);
 
+	// ダッシュ時間を減らす
+	if (isDashing_)
+	{
+		dashTimer_ -= 1.0f / 60.0f;
+
+		// ダッシュ中は横長にして速度感を出す
+		worldTransform_.scale_ = {
+			1.35f,
+			0.75f,
+			1.0f
+		};
+
+		if (dashTimer_ <= 0.0f)
+		{
+			dashTimer_ = 0.0f;
+			isDashing_ = false;
+		}
+	}
+	else
+	{
+		worldTransform_.scale_ = {
+			1.0f,
+			1.0f,
+			1.0f
+		};
+	}
+
 	// 旋回制御
 	if (turnTimer_ > 0.0f) 
 	{
@@ -472,10 +576,46 @@ void Player::Update()
 	}
 
 	upDate_->WorldTransformUpDate(worldTransform_);
+
+	// 攻撃判定と同じく、向いている方向へエフェクトを配置
+	worldTransformAttack.translation_ = worldTransform_.translation_;
+
+	if (lrDirection_ == LRDirection::kRight)
+	{
+		worldTransformAttack.translation_.x += 0.9f;
+	}
+	else
+	{
+		worldTransformAttack.translation_.x -= 0.9f;
+	}
+
+	// 表示中に少し広がる横長のエフェクト
+	float effectScale = 1.0f;
+	if (attackEffectTimer_ > 0.0f)
+	{
+		effectScale =
+			1.0f -
+			attackEffectTimer_ / kAttackEffectDuration * 0.4f;
+	}
+
+	worldTransformAttack.scale_ = {
+		0.9f * effectScale,
+		0.25f * effectScale,
+		0.25f * effectScale
+	};
+
+	worldTransformAttack.rotation_.z += 0.35f;
+	upDate_->WorldTransformUpDate(worldTransformAttack);
 }
 
 void Player::Draw() 
 {
+	// 攻撃中だけ球を横長にしたエフェクトを表示
+	if (attackEffectTimer_ > 0.0f)
+	{
+		modelAttack->Draw(worldTransformAttack, *camera_);
+	}
+
 	// 無敵時間中はプレイヤーを点滅させる
 	if (invincibleTimer_ > 0.0f)
 	{
@@ -574,8 +714,8 @@ void Player::OnCollision(Boss* boss)
 
 void Player::OnBulletCollision()
 {
-	// 無敵時間中はダメージを受けない
-	if (invincibleTimer_ > 0.0f || isDead_)
+	// ダッシュ中・被弾後の無敵時間中はダメージを受けない
+	if (isDashing_ || invincibleTimer_ > 0.0f || isDead_)
 	{
 		return;
 	}

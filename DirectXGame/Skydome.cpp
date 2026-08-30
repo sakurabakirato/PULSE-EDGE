@@ -1,6 +1,8 @@
 #include "SkyDome.h"
+#include "assert.h"
 
-void Skydome::Initialize(Model* model, Camera* camera) {
+void Skydome::Initialize(Model* model, Camera* camera) 
+{
 	assert(model);
 	model_ = model;
 	camera_ = camera;

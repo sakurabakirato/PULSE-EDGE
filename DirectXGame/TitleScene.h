@@ -1,51 +1,33 @@
 #pragma once
 
-#include "KamataEngine.h"
-#include "UpDate.h"
 #include "Fade.h"
+#include <KamataEngine.h>
 
 using namespace KamataEngine;
 
-class TitleScene {
+class TitleScene
+{
 public:
 	~TitleScene();
 
 	void Initialize();
-
 	void Update();
-
 	void Draw();
 
-	// 02_12 26枚目
 	bool IsFinished() const { return finished_; }
 
-	enum class Phase {
+	enum class Phase
+	{
 		kFadeIn,
 		kMain,
 		kFadeOut,
 	};
 
 private:
-	static inline const float kTimeTitleMove = 2.0f;
+	uint32_t titleTextureHandle_ = 0;
+	Sprite* titleSprite_ = nullptr;
 
-	// ビュープロジェクション
-	Camera camera_;
-	WorldTransform worldTransformTitle_;
-	WorldTransform worldTransformPlayer_;
-
-	Model* modelPlayer_ = nullptr;
-	Model* modelTitle_ = nullptr;
-
-	UpDate* upDate_ = nullptr;
-
-	// ワールド変換データ
-	WorldTransform worldTransform_;
-
-	float counter_ = 0.0f;
-	// 02_12 26枚目
 	bool finished_ = false;
-
 	Fade* fade_ = nullptr;
-
 	Phase phase_ = Phase::kFadeIn;
 };

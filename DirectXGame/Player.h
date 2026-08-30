@@ -18,6 +18,7 @@ class Boss;
 class Player 
 {
 public:
+	~Player();
 
 	// 左右
 	enum class LRDirection 
@@ -139,18 +140,12 @@ private:
 
 	Vector3 velocity_ = {};
 
-	// 02_05  フレームごとの加速度
-	static inline const float kAcceleration = 0.1f;
-
 	// 02_05 顔の向き
 	LRDirection lrDirection_ = LRDirection::kRight;
 
-	// 02_05 非入力時の摩擦係数
-	static inline const float kAttenuation = 0.05f;
-
 	// 速度制限
 	//  02_05 最高速度
-	static inline const float kLimitRunSpeed = 0.3f;
+	static inline const float kLimitRunSpeed = 0.15f;
 
 	// 旋回開始時の角度
 	float turnFirstRotationY_ = 0.0f;
@@ -163,6 +158,30 @@ private:
 
 	// 接地状態フラグ
 	bool onGround_ = true;
+
+	// 現在のジャンプ回数（地上と空中で合計2回まで）
+	int jumpCount_ = 0;
+
+	// 回避ダッシュ中か
+	bool isDashing_ = false;
+
+	// ダッシュの残り時間
+	float dashTimer_ = 0.0f;
+
+	// 次にダッシュできるまでの時間
+	float dashCooldownTimer_ = 0.0f;
+
+	// 現在の滞空中にダッシュを使用したか
+	bool airDashUsed_ = false;
+
+	// ダッシュ速度
+	static inline const float kDashSpeed = 0.45f;
+
+	// ダッシュ継続時間
+	static inline const float kDashDuration = 0.18f;
+
+	// ダッシュの再使用待ち時間
+	static inline const float kDashCooldown = 0.35f;
 
 	// 02_05 ジャンプ定数もろもろ
 
@@ -235,4 +254,10 @@ private:
 
 	// 被弾後の無敵時間
 	float invincibleTimer_ = 0.0f;
+
+	// 攻撃エフェクトの残り表示時間
+	float attackEffectTimer_ = 0.0f;
+
+	// 攻撃エフェクトの表示時間
+	static inline const float kAttackEffectDuration = 0.15f;
 };

@@ -13,7 +13,6 @@ void GameClear::Initialize()
 	camera_.Initialize();
 
 	modelClear_ = Model::CreateFromOBJ("GameClear", true);
-	/*modelSpace_ = Model::CreateFromOBJ("space");*/
 
 	skydome_ = new Skydome();
 	modelSkydome_ = Model::CreateFromOBJ("skyDome", true);

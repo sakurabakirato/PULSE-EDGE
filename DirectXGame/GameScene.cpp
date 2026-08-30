@@ -4,6 +4,13 @@ using namespace KamataEngine;
 
 GameScene::~GameScene() 
 {
+	// ゲームシーンを抜けたら戦闘BGMを停止
+	if (voiceHandle != 0)
+	{
+		Audio::GetInstance()->StopWave(voiceHandle);
+		voiceHandle = 0;
+	}
+
 	delete sprite_;
 	delete hpBarBack_;
 	delete playerHpBar_;
@@ -37,8 +44,14 @@ GameScene::~GameScene()
 
 void GameScene::Initialize() 
 {
+	// ゲームシーン中だけ戦闘BGMをループ再生
+	BGMHandle = Audio::GetInstance()->LoadWave(
+		"sound/Battle-Everlasting.wav");
 
-	BGMHandle = Audio::GetInstance()->LoadWave("sound/1123.mp3");
+	voiceHandle = Audio::GetInstance()->PlayWave(
+		BGMHandle,
+		true,
+		0.15f);
 
 	blockModel_ = Model::CreateFromOBJ("block");
 
@@ -279,6 +292,15 @@ void GameScene::Update()
 	ChangePhase();
 
 	CheckAllCollisions();
+
+	// ゲームオーバーまたはボス撃破時に戦闘BGMを停止
+	// シーンが切り替わる前の更新で確実に止める
+	if ((player_->IsDead() || boss_->IsDead()) &&
+		voiceHandle != 0)
+	{
+		Audio::GetInstance()->StopWave(voiceHandle);
+		voiceHandle = 0;
+	}
 	
 
 	// カメラの処理
@@ -408,6 +430,9 @@ void GameScene::ChangePhase()
 		// Initialize関数のいきなりパーティクル発生処理は消す
 		if (player_->IsDead()) 
 		{
+			//音を止める
+			Audio::GetInstance()->StopWave(voiceHandle);
+
 			// 死亡演出
 			phase_ = Phase::kDeath;
 

@@ -1,4 +1,5 @@
 #include "Math.h"
+#include "assert.h"
 Vector3 Add(const Vector3& v1, const Vector3& v2) {
 	Vector3 result = {};
 
@@ -213,7 +214,8 @@ Matrix4x4 MakeIdenity4x4() {
 	return result;
 }
 
-Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix) {
+Vector3 Transform(const Vector3& vector, const Matrix4x4& matrix) 
+{
 	Vector3 result = {};
 
 	result.x = vector.x * matrix.m[0][0] + vector.y * matrix.m[1][0] + vector.z * matrix.m[2][0] + 1.0f * matrix.m[3][0];
