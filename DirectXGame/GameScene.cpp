@@ -45,13 +45,9 @@ GameScene::~GameScene()
 void GameScene::Initialize() 
 {
 	// ゲームシーン中だけ戦闘BGMをループ再生
-	BGMHandle = Audio::GetInstance()->LoadWave(
-		"sound/Battle-Everlasting.wav");
+	BGMHandle = Audio::GetInstance()->LoadWave("sound/Battle-Everlasting.wav");
 
-	voiceHandle = Audio::GetInstance()->PlayWave(
-		BGMHandle,
-		true,
-		0.15f);
+	voiceHandle = Audio::GetInstance()->PlayWave(BGMHandle, true, 0.15f);
 
 	blockModel_ = Model::CreateFromOBJ("block");
 
@@ -116,10 +112,7 @@ void GameScene::Initialize()
 		TextureManager::Load("white1x1.png");
 
 	// HPバーの背景
-	hpBarBack_ = Sprite::Create(
-		textureHandle_,
-		{ 390.0f, 40.0f });
-
+	hpBarBack_ = Sprite::Create(textureHandle_, { 390.0f, 40.0f });
 	hpBarBack_->SetAnchorPoint({ 0.0f, 0.0f });
 	hpBarBack_->SetSize({ 500.0f, 30.0f });
 	hpBarBack_->SetColor({
@@ -130,9 +123,7 @@ void GameScene::Initialize()
 		});
 
 	// 現在HPを表す赤いバー
-	sprite_ = Sprite::Create(
-		textureHandle_,
-		{ 390.0f, 40.0f });
+	sprite_ = Sprite::Create(textureHandle_, { 390.0f, 40.0f });
 
 	sprite_->SetAnchorPoint({ 0.0f, 0.0f });
 	sprite_->SetSize({ 500.0f, 30.0f });
@@ -193,7 +184,6 @@ void GameScene::GenerateBlocks()
 	uint32_t numBlockHorizontal = mapChipField_->GetNumBlockHorizontal();
 
 	// 要素数を変更する
-
 	worldTransformBlocks_.resize(numBlockVirtical);
 
 	// キューブの生成

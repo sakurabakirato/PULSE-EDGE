@@ -2,7 +2,7 @@
 
 TitleScene::~TitleScene()
 {
-	delete titleSprite_;
+	delete modelTitle_;
 	delete fade_;
 }
 
@@ -11,13 +11,15 @@ void TitleScene::Initialize()
 	finished_ = false;
 	phase_ = Phase::kFadeIn;
 
-	// 1280x720のタイトル画像を画面全体に表示
-	titleTextureHandle_ = TextureManager::Load("title.png");
-	titleSprite_ = Sprite::Create(
-		titleTextureHandle_,
-		{0.0f, 0.0f});
-	titleSprite_->SetAnchorPoint({0.0f, 0.0f});
-	titleSprite_->SetSize({1280.0f, 720.0f});
+	modelTitle_ = Model::CreateFromOBJ("titleFont", true);
+
+	// カメラ初期化
+	camera_.Initialize();
+
+	const float kPlayerTitle = 2.0f;
+
+	worldTransformTitle_.Initialize();
+	worldTransformTitle_.scale_ = { kPlayerTitle, kPlayerTitle, kPlayerTitle };
 
 	fade_ = new Fade();
 	fade_->Initialize();
@@ -57,12 +59,7 @@ void TitleScene::Update()
 
 void TitleScene::Draw()
 {
-	Sprite::PreDraw(
-		DirectXCommon::GetInstance()->GetCommandList());
-
-	titleSprite_->Draw();
-
-	Sprite::PostDraw();
+	modelTitle_->Draw(worldTransformTitle_, camera_);
 
 	fade_->Draw();
 }

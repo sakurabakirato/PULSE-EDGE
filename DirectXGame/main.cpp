@@ -96,7 +96,7 @@ void ChangeScene()
 }
 
 // 02_12 31枚目
-void UpDataScene() 
+void UpdataScene() 
 {
 	switch (scene) 
 	{
@@ -163,7 +163,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int)
 		ChangeScene();
 
 		// 現在シーン更新
-		UpDataScene();
+		UpdataScene();
 
 		// 描画更新
 		dxCommon->PreDraw();

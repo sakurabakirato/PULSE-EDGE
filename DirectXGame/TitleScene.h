@@ -1,5 +1,4 @@
 #pragma once
-
 #include "Fade.h"
 #include <KamataEngine.h>
 
@@ -24,8 +23,12 @@ public:
 	};
 
 private:
-	uint32_t titleTextureHandle_ = 0;
-	Sprite* titleSprite_ = nullptr;
+	
+	// ビュープロジェクション
+	Camera camera_;
+	WorldTransform worldTransformTitle_;
+
+	Model* modelTitle_ = nullptr;
 
 	bool finished_ = false;
 	Fade* fade_ = nullptr;
