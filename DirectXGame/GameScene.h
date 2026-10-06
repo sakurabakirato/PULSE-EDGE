@@ -50,7 +50,7 @@ private:
 	Phase phase_;
 
 	// HPバー用テクスチャ
-	uint32_t textureHandle_ = 0;
+	uint32_t HPtextureHandle_ = 0;
 
 	// 現在HP
 	Sprite* sprite_ = nullptr;

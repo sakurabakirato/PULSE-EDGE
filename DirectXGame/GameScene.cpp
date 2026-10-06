@@ -108,11 +108,11 @@ void GameScene::Initialize()
 	//----------------ボスHPバー----------------//
 
 	// 1×1の白い画像を読み込む
-	textureHandle_ =
+	HPtextureHandle_ =
 		TextureManager::Load("white1x1.png");
 
 	// HPバーの背景
-	hpBarBack_ = Sprite::Create(textureHandle_, { 390.0f, 40.0f });
+	hpBarBack_ = Sprite::Create(HPtextureHandle_, { 390.0f, 40.0f });
 	hpBarBack_->SetAnchorPoint({ 0.0f, 0.0f });
 	hpBarBack_->SetSize({ 500.0f, 30.0f });
 	hpBarBack_->SetColor({
@@ -123,7 +123,7 @@ void GameScene::Initialize()
 		});
 
 	// 現在HPを表す赤いバー
-	sprite_ = Sprite::Create(textureHandle_, { 390.0f, 40.0f });
+	sprite_ = Sprite::Create(HPtextureHandle_, { 390.0f, 40.0f });
 
 	sprite_->SetAnchorPoint({ 0.0f, 0.0f });
 	sprite_->SetSize({ 500.0f, 30.0f });
@@ -137,7 +137,7 @@ void GameScene::Initialize()
 	//----------------プレイヤーHPバー----------------//
 
 	playerHpBarBack_ = Sprite::Create(
-		textureHandle_,
+		HPtextureHandle_,
 		{40.0f, 660.0f });
 
 	playerHpBarBack_->SetAnchorPoint({0.0f, 0.0f});
@@ -150,7 +150,7 @@ void GameScene::Initialize()
 		});
 
 	playerHpBar_ = Sprite::Create(
-		textureHandle_,
+		HPtextureHandle_,
 		{40.0f, 660.0f });
 
 	playerHpBar_->SetAnchorPoint({0.0f, 0.0f});

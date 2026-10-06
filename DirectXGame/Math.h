@@ -4,10 +4,6 @@
 
 using namespace KamataEngine;
 
-// class Math
-//{
-// public:
-
 // 加算
 Vector3 Add(const Vector3& v1, const Vector3& v2);
 
@@ -95,4 +91,5 @@ struct AABB {
 
 bool IsCollision(const AABB& aabb1, const AABB& aabb2);
 
-//}
+// 渡されたWorldTransformの行列を更新して転送する
+void WorldTransformUpdate(KamataEngine::WorldTransform& worldTransform);

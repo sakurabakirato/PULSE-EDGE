@@ -43,7 +43,7 @@ namespace KamataEngine
 /// エンジンの初期化
 /// </summary>
 /// <param name="title">ウィンドウタイトル</param>
-void Initialize(const std::wstring& title = L"basic", bool enableDebugLayer = false);
+void Initialize(const std::wstring& title = L"PULSE EDGE", bool enableDebugLayer = false);
 
 /// <summary>
 /// エンジンの終了処理
