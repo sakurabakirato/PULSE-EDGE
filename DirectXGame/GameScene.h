@@ -14,6 +14,7 @@ using namespace KamataEngine;
 class GameScene 
 {
 public:
+
 	// 初期化
 	void Initialize();
 
@@ -23,21 +24,20 @@ public:
 	// 描画
 	void Draw();
 
+	//デストラクタ
 	~GameScene();
-
-	void GenerateBlocks();
-
-	// 02_10 16枚目 衝突判定と応答
-	void CheckAllCollisions();
-
-	// 02_12 9枚目
-	void ChangePhase();
 
 	// ボスのHPが0ならゲームクリア
 	bool IsFinished() const { return boss_->IsDead(); }
 	bool IsDead() const { return player_->IsDead(); }
 
 private:
+
+	void GenerateBlocks();
+	//衝突判定と応答
+	void CheckAllCollisions();
+	void ChangePhase();
+
 	enum class Phase 
 	{
 		kFadeIn,

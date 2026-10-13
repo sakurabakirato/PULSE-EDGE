@@ -7,6 +7,7 @@ TitleScene::~TitleScene()
 {
 	delete modelTitle_;
 	delete sprite_;
+	delete backgroundSprite_;
 	delete fade_;
 }
 
@@ -18,10 +19,22 @@ void TitleScene::Initialize()
 	//3Dモデルの生成
 	modelTitle_ = Model::CreateFromOBJ("title", true);
 
+	// 背景画像を読み込む
+	backgroundTextureHandle_ = TextureManager::Load("titleBackground.png");
+
 	//ファイル名を指定して2Dテクスチャを読み込む
 	textureHandle_ = TextureManager::Load("PUSHSPACE.png");
 
-	/*sprite_ = Sprite::Create(textureHandle_, { 450.0f, 500.0f });*/
+	// スタートSEを読み込む
+	startSEHandle_ = KamataEngine::Audio::GetInstance()->LoadWave("sound/accent.mp3");
+
+	// 画面左上に配置
+	backgroundSprite_ = Sprite::Create(backgroundTextureHandle_, { 0.0f, 0.0f });
+
+	backgroundSprite_->SetAnchorPoint({ 0.0f, 0.0f });
+
+	// 画面全体のサイズにする
+	backgroundSprite_->SetSize({ 1280.0f, 720.0f });
 
 	// 元の左上位置(450, 500)とサイズ(400, 70)から求めた中心
 	sprite_ = Sprite::Create(textureHandle_, { 650.0f, 535.0f });
@@ -79,6 +92,12 @@ void TitleScene::Update()
 		// SPACEを押した瞬間、リアクションを開始
 		if (Input::GetInstance()->TriggerKey(DIK_SPACE))
 		{
+			// SEを1回再生する
+			KamataEngine::Audio::GetInstance()->PlayWave(
+				startSEHandle_,
+				false
+			);
+
 			startElapsed_ = 0.0f;
 			phase_ = Phase::kStartReaction;
 		}
@@ -156,6 +175,17 @@ void TitleScene::Update()
 
 void TitleScene::Draw()
 {
+
+	// ① 背景
+	Sprite::PreDraw();
+
+	backgroundSprite_->Draw();
+
+	Sprite::PostDraw();
+
+	//深度バッファだけをクリアする
+	DirectXCommon::GetInstance()->ClearDepthBuffer();
+
 	// 3Dモデルの描画準備
 	Model::PreDraw();
 

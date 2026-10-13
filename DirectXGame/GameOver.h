@@ -19,12 +19,15 @@ public:
 
 	// 02_12 26枚目
 	bool IsFinished() const { return finished_; }
-	Skydome* skydome_ = nullptr;
+	
 private:
 	static inline const float kTimeOverMove = 2.0f;
 
 	// ビュープロジェクション
 	Camera camera_;
+
+	Skydome* skydome_ = nullptr;
+
 	WorldTransform worldTransformOver_;
 	WorldTransform worldTransformSpace_;
 	

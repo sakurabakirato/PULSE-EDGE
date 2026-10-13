@@ -32,7 +32,8 @@ public:
 	};
 
 private:
-
+	uint32_t backgroundTextureHandle_ = 0;
+	Sprite* backgroundSprite_ = nullptr;
 	//PUSHSPACE用テクスチャ
 	uint32_t textureHandle_ = 0;
 
@@ -73,6 +74,9 @@ private:
 
 	Fade* fade_ = nullptr;
 	Phase phase_ = Phase::kFadeIn;
+
+	// スタートSEを識別する番号
+	uint32_t startSEHandle_ = 0;
 
 
 };

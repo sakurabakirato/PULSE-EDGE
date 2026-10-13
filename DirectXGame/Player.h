@@ -18,6 +18,8 @@ class Boss;
 class Player 
 {
 public:
+
+	//デストラクタ
 	~Player();
 
 	// 左右
@@ -98,34 +100,20 @@ public:
 	bool IsDead() const { return isDead_; }
 	int GetHp() const { return hp_; }
 
-	// 通常行動初期化
-	void BehaviorRootInitialize();
+	//// 通常行動初期化
+	//void BehaviorRootInitialize();
 
-	// 通常行動更新
-	void BehaviorRootUpdate();
+	//// 通常行動更新
+	//void BehaviorRootUpdate();
 
-	// 攻擊行動初期化
-	void BehaviorAttackInitialize();
+	//// 攻擊行動初期化
+	//void BehaviorAttackInitialize();
 
-	// 攻撃行動更新
-	void BehaviorAttackUpdate();
+	//// 攻撃行動更新
+	//void BehaviorAttackUpdate();
 
-	// 予備動作
-	static inline const uint32_t kAnticipationTime = 8;
-	// 前進動作の時間
-	static inline const uint32_t kActionTime = 5;
-	// 余韻動作の時間
-	static inline const uint32_t kRecoveryTime = 12;
-	Model* modelAttack = nullptr;
-	WorldTransform worldTransformAttack;
-	Behavior behavior_ = Behavior::kRoot;
-	// 次の振るまいリクエスト
-	Behavior behaviorRequest_ = Behavior::kUnknown;
-
+	//攻撃中かどうかを確認する
 	bool IsAttack();
-	// 攻撃フェーズ
-	AttackPhase attackPhase = AttackPhase::kUnknown;
-	AttackPhase attackPhaseRequest = AttackPhase::kUnknown;
 
 private:
 	// ワールド変換データ
@@ -260,4 +248,19 @@ private:
 
 	// 攻撃エフェクトの表示時間
 	static inline const float kAttackEffectDuration = 0.15f;
+
+	// 予備動作
+	static inline const uint32_t kAnticipationTime = 8;
+	// 前進動作の時間
+	static inline const uint32_t kActionTime = 5;
+	// 余韻動作の時間
+	static inline const uint32_t kRecoveryTime = 12;
+	Model* modelAttack = nullptr;
+	WorldTransform worldTransformAttack;
+	Behavior behavior_ = Behavior::kRoot;
+	// 次の振るまいリクエスト
+	Behavior behaviorRequest_ = Behavior::kUnknown;
+	// 攻撃フェーズ
+	AttackPhase attackPhase = AttackPhase::kUnknown;
+	AttackPhase attackPhaseRequest = AttackPhase::kUnknown;
 };

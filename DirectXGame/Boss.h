@@ -54,8 +54,6 @@ public:
 
 	bool IsAttack();
 
-	bool isDead = false;
-
 	// ボスの最大HP
 	static inline const int kMaxHp = 10;
 
@@ -151,6 +149,7 @@ private:
 
 	// 現在の待機中に攻撃したか
 	bool attackDone_ = false;
+	bool isDead = false;
 
 	// 弾を発射
 	void Attack();

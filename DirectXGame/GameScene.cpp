@@ -35,8 +35,6 @@ GameScene::~GameScene()
 	worldTransformBlocks_.clear();
 
 	delete mapChipField_;
-
-	// 02_11_17枚目
 	delete deathParticles_;
 	delete deathParticle_model_;
 	delete fade_;
@@ -108,8 +106,7 @@ void GameScene::Initialize()
 	//----------------ボスHPバー----------------//
 
 	// 1×1の白い画像を読み込む
-	HPtextureHandle_ =
-		TextureManager::Load("white1x1.png");
+	HPtextureHandle_ = TextureManager::Load("white1x1.png");
 
 	// HPバーの背景
 	hpBarBack_ = Sprite::Create(HPtextureHandle_, { 390.0f, 40.0f });
@@ -251,33 +248,23 @@ void GameScene::Update()
 	boss_->Update();
 
 	//----------------ボスHPバー更新----------------//
-
-	float hpRatio =
-		static_cast<float>(boss_->GetHp()) /
-		static_cast<float>(boss_->GetMaxHp());
+	float hpRatio = static_cast<float>(boss_->GetHp()) / static_cast<float>(boss_->GetMaxHp());
 
 	if (hpRatio < 0.0f)
 	{
 		hpRatio = 0.0f;
 	}
 
-	sprite_->SetSize({
-		500.0f * hpRatio,
-		30.0f
-		});
+	sprite_->SetSize({ 500.0f * hpRatio, 30.0f });
 
-	float playerHpRatio =
-		static_cast<float>(player_->GetHp()) / 3.0f;
+	float playerHpRatio = static_cast<float>(player_->GetHp()) / 3.0f;
 
 	if (playerHpRatio < 0.0f)
 	{
 		playerHpRatio = 0.0f;
 	}
 
-	playerHpBar_->SetSize({
-		250.0f * playerHpRatio,
-		20.0f
-		});
+	playerHpBar_->SetSize({ 250.0f * playerHpRatio, 20.0f });
 
 	ChangePhase();
 
@@ -285,8 +272,7 @@ void GameScene::Update()
 
 	// ゲームオーバーまたはボス撃破時に戦闘BGMを停止
 	// シーンが切り替わる前の更新で確実に止める
-	if ((player_->IsDead() || boss_->IsDead()) &&
-		voiceHandle != 0)
+	if ((player_->IsDead() || boss_->IsDead()) && voiceHandle != 0)
 	{
 		Audio::GetInstance()->StopWave(voiceHandle);
 		voiceHandle = 0;
@@ -304,8 +290,7 @@ void GameScene::Update()
 	}
 	else 
 	{
-		// ビュープロジェクション行列の更新と転送AL3_02_02*/
-
+		// ビュープロジェクション行列の更新と転送
 		camera_.UpdateMatrix();
 	}
 	CController_->Updata();
@@ -364,8 +349,7 @@ void GameScene::Draw()
 
 	//----------------ボスHPバー描画----------------//
 
-	Sprite::PreDraw(
-		DirectXCommon::GetInstance()->GetCommandList());
+	Sprite::PreDraw(DirectXCommon::GetInstance()->GetCommandList());
 
 	hpBarBack_->Draw();
 	sprite_->Draw();

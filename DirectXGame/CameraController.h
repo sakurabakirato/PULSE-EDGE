@@ -22,7 +22,10 @@ public:
 	/// 初期化
 	/// </summary>
 	void Initialize(Camera* camera);
-
+	
+	/// <summary>
+	/// 更新
+	/// </summary>
 	void Updata();
 
 	// プレイヤーの動きに合わせて動く
@@ -34,11 +37,10 @@ public:
 	void SetMovableArea(Rect area) { movableArea_ = area; }
 
 private:
+
 	Camera* camera_ = nullptr;
 
 	Player* target_ = nullptr;
-
-	// Math* math_ = nullptr;
 
 	Vector3 targetOffset_ = {0, 0, -30.0f};
 
