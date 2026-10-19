@@ -1,92 +1,157 @@
 #include "Fade.h"
 #include <algorithm>
 
-void Fade::Initialize() {
-	// 02_13 10枚目
-	//	sprite_ = new Sprite();
-	sprite_ = Sprite::Create(0, Vector2{});
-
-	sprite_->SetSize(Vector2(WinApp::kWindowWidth, WinApp::kWindowHeight));
-	sprite_->SetColor(Vector4(0, 0, 0, 1.0f));
+Fade::~Fade() 
+{
+    delete topPanel_;
+    delete bottomPanel_;
+    delete topLine_;
+    delete bottomLine_;
 }
 
-void Fade::Update() {
+void Fade::Initialize() 
+{
+    uint32_t textureHandle = TextureManager::Load("white1x1.png");
 
-	// 02_13 19枚目 フェード状態による分岐
-	switch (status_) {
-	case Status::None:
+    topPanel_ = Sprite::Create(textureHandle, { 0.0f, 0.0f });
+    bottomPanel_ = Sprite::Create(textureHandle, { 0.0f, 0.0f });
 
-		break;
-	case Status::FadeIn:
-		// 02_13 21枚目
+    topLine_ = Sprite::Create(textureHandle, { 0.0f, 0.0f });
+    bottomLine_ = Sprite::Create(textureHandle, { 0.0f, 0.0f });
 
-		// 1フレーム分の秒数をカウントアップ
-		counter_ += 1.0f / 60.0f;
-		// フェード継続時間に達したら打ち止め
-		if (counter_ >= duration_) {
-			counter_ = duration_;
-		}
-		// 0.0fから1.0fの間で、経過時間がフェード継続時間に近づくほどアルファ値を大きくする
-		sprite_->SetColor(Vector4(0, 0, 0, 1.0f - std::clamp(counter_ / duration_, 0.0f, 1.0f)));
+    // 左上を基準に配置する
+    topPanel_->SetAnchorPoint({ 0.0f, 0.0f });
+    bottomPanel_->SetAnchorPoint({ 0.0f, 0.0f });
+    topLine_->SetAnchorPoint({ 0.0f, 0.0f });
+    bottomLine_->SetAnchorPoint({ 0.0f, 0.0f });
 
-		break;
-	case Status::FadeOut:
-		// 02_13 20枚目
+    // 暗い紺色のパネル。不透明にする
+    topPanel_->SetColor({ 0.02f, 0.03f, 0.06f, 1.0f });
+    bottomPanel_->SetColor({ 0.02f, 0.03f, 0.06f, 1.0f });
 
-		// 1フレーム分の秒数をカウントアップ
-		counter_ += 1.0f / 60.0f;
-		// フェード継続時間に達したら打ち止め
-		if (counter_ >= duration_) {
-			counter_ = duration_;
-		}
-		// 0.0fから1.0fの間で、経過時間がフェード継続時間に近づくほどアルファ値を大きくする
-		sprite_->SetColor(Vector4(0, 0, 0, std::clamp(counter_ / duration_, 0.0f, 1.0f)));
-		break;
-	}
+    // シアンのライン
+    topLine_->SetColor({ 0.0f, 0.9f, 1.0f, 1.0f });
+    bottomLine_->SetColor({ 0.0f, 0.9f, 1.0f, 1.0f });
+
+    status_ = Status::None;
+    coverage_ = 0.0f;
+
+    UpdateLayout();
 }
 
-void Fade::Draw() {
+void Fade::Start(Status status, float duration) 
+{
+    status_ = status;
 
-	// 02_13 24枚目
-	if (status_ == Status::None) {
-		return;
-	}
+    // 0秒による割り算を防ぐ
+    duration_ = (std::max)(duration, 0.001f);
+    counter_ = 0.0f;
 
-	// 02_13 11枚目
-	Sprite::PreDraw(DirectXCommon::GetInstance()->GetCommandList());
-	sprite_->Draw();
-	Sprite::PostDraw();
+    // 開くときは閉じた状態から開始する
+    // 閉じるときは開いた状態から開始する
+    coverage_ = (status == Status::FadeIn) ? 1.0f : 0.0f;
+
+    // 最初の描画から正しい位置になるようにする
+    UpdateLayout();
 }
 
-// 02_13 18枚目 フェード開始
-void Fade::Start(Status status, float duration) {
+void Fade::Update() 
+{
+    if (status_ == Status::None) 
+    {
+        return;
+    }
 
-	status_ = status;
-	duration_ = duration;
-	counter_ = 0.0f;
+    // 既存コードと同じ固定60fpsを前提にする
+    counter_ = (std::min)(counter_ + 1.0f / 60.0f, duration_);
+
+    float t = std::clamp(
+        counter_ / duration_,
+        0.0f,
+        1.0f
+    );
+
+    // 動き始めと終わりをなめらかにする
+    float ease = t * t * (3.0f - 2.0f * t);
+
+    if (status_ == Status::FadeOut) 
+    {
+        coverage_ = ease;
+    } 
+    else 
+    {
+        coverage_ = 1.0f - ease;
+    }
+
+    UpdateLayout();
 }
 
-// 02_13 24枚目 フェード停止
-void Fade::Stop() { status_ = Status::None; }
+void Fade::UpdateLayout() 
+{
+    const float width =
+        static_cast<float>(WinApp::kWindowWidth);
 
-// 02_13 26枚目 フェード終了判定
-bool Fade::IsFinished() const {
+    const float height =
+        static_cast<float>(WinApp::kWindowHeight);
 
-	// フェード状態による分岐
-	switch (status_) {
-	case Status::FadeIn:
-	case Status::FadeOut:
+    // 上下それぞれ画面の半分まで覆う
+    float panelHeight = height * 0.5f * coverage_;
 
-		  if (counter_ >= duration_) {
-		      return true;
-		  }
-		  else {
-		      return false;
-		  }
+    topPanel_->SetPosition({ 0.0f, 0.0f });
+    topPanel_->SetSize({ width, panelHeight });
 
-		//// 1行バージョン 3項演算子
-		//return (counter_ >= duration_) ? true : false;
-	}
+    bottomPanel_->SetPosition({
+        0.0f,
+        height - panelHeight
+        });
+    bottomPanel_->SetSize({ width, panelHeight });
 
-	return true;
+    // パネルが小さい間はラインも細くする
+    float lineHeight = (std::min)(3.0f, panelHeight);
+
+    // 上パネルの下端
+    topLine_->SetPosition({
+        0.0f,
+        panelHeight - lineHeight
+        });
+    topLine_->SetSize({ width, lineHeight });
+
+    // 下パネルの上端
+    bottomLine_->SetPosition({
+        0.0f,
+        height - panelHeight
+        });
+    bottomLine_->SetSize({ width, lineHeight });
+}
+
+void Fade::Draw() 
+{
+    if (status_ == Status::None || coverage_ <= 0.0f) 
+    {
+        return;
+    }
+
+    Sprite::PreDraw(
+        DirectXCommon::GetInstance()->GetCommandList()
+    );
+
+    topPanel_->Draw();
+    bottomPanel_->Draw();
+
+    // ラインはパネルの上に描く
+    topLine_->Draw();
+    bottomLine_->Draw();
+
+    Sprite::PostDraw();
+}
+
+void Fade::Stop() 
+{
+    status_ = Status::None;
+}
+
+bool Fade::IsFinished() const 
+{
+    return status_ == Status::None ||
+        counter_ >= duration_;
 }

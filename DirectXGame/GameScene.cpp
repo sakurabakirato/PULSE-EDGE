@@ -1,4 +1,8 @@
+﻿#ifndef NOMINMAX
+#define NOMINMAX
+#endif
 #include "GameScene.h"
+#include <cmath>
 
 using namespace KamataEngine;
 
@@ -38,6 +42,8 @@ GameScene::~GameScene()
 	delete deathParticles_;
 	delete deathParticle_model_;
 	delete fade_;
+	delete CController_;
+	delete modelSkydome_;
 }
 
 void GameScene::Initialize() 
@@ -45,7 +51,7 @@ void GameScene::Initialize()
 	// ゲームシーン中だけ戦闘BGMをループ再生
 	BGMHandle = Audio::GetInstance()->LoadWave("sound/Battle-Everlasting.wav");
 
-	voiceHandle = Audio::GetInstance()->PlayWave(BGMHandle, true, 0.15f);
+	voiceHandle = 0; // BGMはカメラが戻って戦闘開始するときに再生
 
 	blockModel_ = Model::CreateFromOBJ("block");
 
@@ -74,7 +80,6 @@ void GameScene::Initialize()
 	camera_.Initialize();
 	camera_.farZ = 1000.0f;
 
-	// 02_03天球
 	// skydome生成
 	skydome_ = new Skydome();
 	// 初期化
@@ -162,16 +167,22 @@ void GameScene::Initialize()
 	//-------------デスパーティクル-----------//
 	//モデル読み込み
 	deathParticle_model_ = Model::CreateFromOBJ("deathParticle");
-	deathParticles_ = new DeathParticles;
-	deathParticles_->Initialize(deathParticle_model_, &camera_, playerPosition);
+	deathParticles_ = nullptr; // 死亡したときだけ生成
 
-	// 02_12 4枚目 ゲームプレイフェーズから開始
+	//ゲームプレイフェーズから開始
 	phase_ = Phase::kFadeIn;
 
 	//---------------fade------------------//
 	fade_ = new Fade();
 	fade_->Initialize();
-	fade_->Start(Fade::Status::FadeIn, 1.0f);
+	fade_->Start(Fade::Status::FadeIn, 0.35f);
+
+	finished_ = false;
+	introPhase_ = IntroPhase::kPlayerEntry;
+	introTargetX_ = playerPosition.x + kEntryWalkDistance;
+	introEntryTime_ = 0.0f;
+	introStuckTime_ = 0.0f;
+	CController_->FollowEntrance();
 }
 
 void GameScene::GenerateBlocks() 
@@ -206,46 +217,61 @@ void GameScene::GenerateBlocks()
 
 void GameScene::Update() 
 {
+	const Phase phaseAtStart = phase_;
 	switch (phase_) 
 	{
+	case Phase::kIntro:
+		UpdateIntro();
+		break;
 	case Phase::kPlay:
 
 		break;
 	case Phase::kDeath:
-		// デス演出フェーズ
-		// 02_11 18枚目 デスパーティクルあれば更新
-		deathParticles_->Update();
-
-		if (deathParticles_ && deathParticles_->IsFinished()) 
+		if (deathParticles_) 
 		{
-			phase_ = Phase::kFadeOut;
-			fade_->Start(Fade::Status::FadeOut, 1.0f);
-		}
+			deathParticles_->Update();
 
+			if (deathParticles_->IsFinished()) 
+			{
+				phase_ = Phase::kFadeOut;
+
+				fade_->Start(
+					Fade::Status::FadeOut,
+					0.25f
+				);
+			}
+		}
 		break;
 	case Phase::kFadeIn:
 		fade_->Update();
 		if (fade_->IsFinished()) 
 		{
-			phase_ = Phase::kPlay;
+			phase_ = Phase::kIntro;
 		}
 		break;
 	case Phase::kFadeOut:
 		fade_->Update();
+
 		if (fade_->IsFinished()) 
 		{
+			// シャッターが完全に閉じた
 			finished_ = true;
 		}
+		break;
 	}
 
-	// 天球生成
+	// 天球更新
 	skydome_->Update();
 
-	// 自キャラの更新
-	player_->Update();
+	// 通常プレイ中だけキャラクターと当たり判定を更新する
+	if (phaseAtStart == Phase::kPlay && phase_ == Phase::kPlay) 
+	{
+		player_->Update();
+		boss_->Update();
 
-	// ボス更新
-	boss_->Update();
+		CheckAllCollisions();
+		ChangePhase();
+	}
 
 	//----------------ボスHPバー更新----------------//
 	float hpRatio = static_cast<float>(boss_->GetHp()) / static_cast<float>(boss_->GetMaxHp());
@@ -266,10 +292,6 @@ void GameScene::Update()
 
 	playerHpBar_->SetSize({ 250.0f * playerHpRatio, 20.0f });
 
-	ChangePhase();
-
-	CheckAllCollisions();
-
 	// ゲームオーバーまたはボス撃破時に戦闘BGMを停止
 	// シーンが切り替わる前の更新で確実に止める
 	if ((player_->IsDead() || boss_->IsDead()) && voiceHandle != 0)
@@ -279,21 +301,18 @@ void GameScene::Update()
 	}
 	
 
-	// カメラの処理
-	if (isDebugCameraActive_) 
+	// 演出中はUpdateIntroがカメラを管理。追従で上書きしない。
+	if (phase_ == Phase::kPlay)
 	{
-		debugCamera_->Update();
-		camera_.matView = debugCamera_->GetCamera().matView;
-		camera_.matProjection = debugCamera_->GetCamera().matProjection;
-		// ビュープロジェクション行列の転送AL3_02_02*/
-		camera_.TransferMatrix();
+		if (isDebugCameraActive_)
+		{
+			debugCamera_->Update();
+			camera_.matView = debugCamera_->GetCamera().matView;
+			camera_.matProjection = debugCamera_->GetCamera().matProjection;
+			camera_.TransferMatrix();
+		}
+		else { CController_->Updata(); }
 	}
-	else 
-	{
-		// ビュープロジェクション行列の更新と転送
-		camera_.UpdateMatrix();
-	}
-	CController_->Updata();
 
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) 
 	{
@@ -329,7 +348,7 @@ void GameScene::Draw()
 		}
 	}
 	//自キャラ描画
-	if (phase_ == Phase::kPlay || phase_ == Phase::kFadeIn) 
+	if (phase_ == Phase::kPlay || phase_ == Phase::kFadeIn || phase_ == Phase::kIntro) 
 	{
 		player_->Draw();
 	}
@@ -347,14 +366,21 @@ void GameScene::Draw()
 
 	Model::PostDraw();
 
+	// 追加：残像・斬撃・ビームを描画
+	if (phase_ == Phase::kPlay) { player_->DrawAttackEffects(); }
+	boss_->DrawIntroShockwaves();
+
 	//----------------ボスHPバー描画----------------//
 
 	Sprite::PreDraw(DirectXCommon::GetInstance()->GetCommandList());
 
-	hpBarBack_->Draw();
-	sprite_->Draw();
-	playerHpBarBack_->Draw();
-	playerHpBar_->Draw();
+	if (phase_ != Phase::kIntro && phase_ != Phase::kFadeIn)
+	{
+		hpBarBack_->Draw();
+		sprite_->Draw();
+		playerHpBarBack_->Draw();
+		playerHpBar_->Draw();
+	}
 
 	Sprite::PostDraw();
 
@@ -380,17 +406,8 @@ void GameScene::CheckAllCollisions()
 		player_->OnCollision(boss_);
 	}
 
-	// Jキーを押した瞬間だけ攻撃判定
-	if (player_->IsAttack())
-	{
-		AABB attackAABB = player_->GetAttackAABB();
-
-		if (IsCollision(attackAABB, bossAABB))
-		{
-			// ボスへ1ダメージ
-			boss_->OnDamage(1);
-		}
-	}
+	// 命中判定と、一回の攻撃につき一度だけのダメージ処理
+	player_->TryHitBoss(boss_);
 #pragma endregion
 }
 
@@ -400,24 +417,94 @@ void GameScene::ChangePhase()
 	switch (phase_) 
 	{
 	case Phase::kPlay:
-		// 02_12 13枚目 if文から中身まで全部実装
-		// Initialize関数のいきなりパーティクル発生処理は消す
+
+		// 同時に死亡した場合はプレイヤー死亡を優先
 		if (player_->IsDead()) 
 		{
-			//音を止める
-			Audio::GetInstance()->StopWave(voiceHandle);
-
-			// 死亡演出
+			// 死亡パーティクルを開始
 			phase_ = Phase::kDeath;
 
-			const Vector3& deathParticlesPosition = player_->GetWorldPosition();
+			const Vector3& position =
+				player_->GetWorldPosition();
 
-			deathParticles_ = new DeathParticles;
-			deathParticles_->Initialize(deathParticle_model_, &camera_, deathParticlesPosition);
+			delete deathParticles_;
+			deathParticles_ = new DeathParticles();
+			deathParticles_->Initialize(
+				deathParticle_model_,
+				&camera_,
+				position
+			);
+		} 
+		else if (boss_->IsDead()) 
+		{
+			// ボス撃破時はシャッターを閉じる
+			phase_ = Phase::kFadeOut;
+			fade_->Start(Fade::Status::FadeOut, 0.25f);
+		}
+
+		break;
+	default:
+		break;
+	}
+}
+
+void GameScene::StartBossCamera()
+{
+	player_->StopEntrance();
+	Vector3 destination = boss_->GetWorldPosition();
+	destination.y += 0.4f;
+	destination.z -= 20.0f;
+	CController_->BeginIntroMove(destination, 1.2f);
+	introPhase_ = IntroPhase::kCameraToBoss;
+}
+
+void GameScene::UpdateIntro()
+{
+	constexpr float dt = 1.0f / 60.0f;
+	switch (introPhase_)
+	{
+	case IntroPhase::kPlayerEntry:
+	{
+		const float previousX = player_->GetWorldTransform().translation_.x;
+		const bool arrived = player_->UpdateEntrance(introTargetX_);
+		CController_->FollowEntrance();
+		introEntryTime_ += dt;
+		if (std::abs(player_->GetWorldTransform().translation_.x - previousX) < 0.001f)
+		{ 
+			introStuckTime_ += dt; 
+		}
+		else 
+		{ 
+			introStuckTime_ = 0.0f; 
+		}
+		// CSV未確認のため、障害物で止まっても開始不能にならない保険。
+		// 通常は指定Xへ到達して次へ進む。停止位置はマップに合わせて調整する。
+		if (arrived || introStuckTime_ >= 0.7f || introEntryTime_ >= 4.0f)
+		{ StartBossCamera(); }
+		break;
+	}
+	case IntroPhase::kCameraToBoss:
+		if (CController_->UpdateIntroMove())
+		{
+			boss_->BeginIntroPose();
+			introPhase_ = IntroPhase::kBossPose;
 		}
 		break;
-	case Phase::kDeath:
-
+	case IntroPhase::kBossPose:
+		if (boss_->UpdateIntroPose())
+		{
+			CController_->BeginIntroMove(CController_->GetFollowPosition(), 1.0f);
+			introPhase_ = IntroPhase::kCameraReturn;
+		}
+		break;
+	case IntroPhase::kCameraReturn:
+		if (CController_->UpdateIntroMove())
+		{
+			// この更新では戦闘を進めず、次の更新から両者を同時に解放。
+			player_->StopEntrance();
+			phase_ = Phase::kPlay;
+			voiceHandle = Audio::GetInstance()->PlayWave(BGMHandle, true, 0.15f);
+		}
 		break;
 	}
 }

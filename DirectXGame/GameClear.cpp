@@ -6,6 +6,7 @@ GameClear::~GameClear()
 {
 	delete modelSpace_;
 	delete modelClear_;
+	delete fade_;
 }
 
 void GameClear::Initialize() 
@@ -37,23 +38,52 @@ void GameClear::Initialize()
 
 	worldTransformSpace_.scale_ = {kSpaceScale, kSpaceScale, kSpaceScale};
 
-	// worldTransformPlayer_.rotation_.y = 0.95f * std::numbers::pi_v<float>;
+	finished_ = false;
 
-	// worldTransformPlayer_.translation_.x = -2.0f;
+	phase_ = Phase::kFadeIn;
 
-	// worldTransformPlayer_.translation_.y = -10.0f;
+	fade_ = new Fade();
+	fade_->Initialize();
+
+	// 閉じたシャッターを開いて画面を見せる
+	fade_->Start(Fade::Status::FadeIn, 0.35f);
 }
 
 
 void GameClear::Update() 
 {
 
-	if (Input::GetInstance()->TriggerKey(DIK_SPACE))
+	switch (phase_) 
 	{
-		Audio::GetInstance()->StopWave(voiceHandle);
-		finished_ = true;
-	}
+	case Phase::kFadeIn:
+		fade_->Update();
 
+		if (fade_->IsFinished()) 
+		{
+			phase_ = Phase::kMain;
+		}
+		break;
+
+	case Phase::kMain:
+		if (Input::GetInstance()->TriggerKey(DIK_SPACE)) 
+		{
+			Audio::GetInstance()->StopWave(voiceHandle);
+
+			phase_ = Phase::kFadeOut;
+			fade_->Start(Fade::Status::FadeOut, 0.25f);
+		}
+		break;
+
+	case Phase::kFadeOut:
+		fade_->Update();
+
+		if (fade_->IsFinished()) 
+		{
+			// 完全に覆ってからタイトルへ戻る
+			finished_ = true;
+		}
+		break;
+	}
 	counter_ += 1.0f / 60.0f;
 	counter_ = std::fmod(counter_, kTimeClearMove);
 
@@ -83,4 +113,6 @@ void GameClear::Draw()
 	/*modelSpace_->Draw(worldTransformSpace_, camera_);*/
 
 	Model::PostDraw();
+
+	fade_->Draw();
 }

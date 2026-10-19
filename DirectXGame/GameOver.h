@@ -1,8 +1,8 @@
 #pragma once
 #include "Skydome.h"
-
 #include "KamataEngine.h"
 #include "UpDate.h"
+#include "Fade.h"
 
 using namespace KamataEngine;
 
@@ -21,6 +21,17 @@ public:
 	bool IsFinished() const { return finished_; }
 	
 private:
+
+	enum class Phase 
+	{
+		kFadeIn,
+		kMain,
+		kFadeOut
+	};
+
+	Phase phase_ = Phase::kFadeIn;
+	Fade* fade_ = nullptr;
+
 	static inline const float kTimeOverMove = 2.0f;
 
 	// ビュープロジェクション

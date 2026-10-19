@@ -11,44 +11,43 @@ TitleScene::~TitleScene()
 	delete fade_;
 }
 
-void TitleScene::Initialize()
+void TitleScene::Initialize(bool useTransition)
 {
 	finished_ = false;
-	phase_ = Phase::kFadeIn;
 
 	//3Dモデルの生成
 	modelTitle_ = Model::CreateFromOBJ("title", true);
 
-	// 背景画像を読み込む
+	//背景画像を読み込む
 	backgroundTextureHandle_ = TextureManager::Load("titleBackground.png");
 
 	//ファイル名を指定して2Dテクスチャを読み込む
 	textureHandle_ = TextureManager::Load("PUSHSPACE.png");
 
-	// スタートSEを読み込む
+	//スタートSEを読み込む
 	startSEHandle_ = KamataEngine::Audio::GetInstance()->LoadWave("sound/accent.mp3");
 
-	// 画面左上に配置
+	//画面左上に配置
 	backgroundSprite_ = Sprite::Create(backgroundTextureHandle_, { 0.0f, 0.0f });
 
 	backgroundSprite_->SetAnchorPoint({ 0.0f, 0.0f });
 
-	// 画面全体のサイズにする
+	//画面全体のサイズにする
 	backgroundSprite_->SetSize({ 1280.0f, 720.0f });
 
-	// 元の左上位置(450, 500)とサイズ(400, 70)から求めた中心
+	//元の左上位置(450, 500)とサイズ(400, 70)から求めた中心
 	sprite_ = Sprite::Create(textureHandle_, { 650.0f, 535.0f });
 
-	// 中央を基準に拡大する
+	//中央を基準に拡大する
 	sprite_->SetAnchorPoint({ 0.5f, 0.5f });
 
-	// 通常サイズ
+	//通常サイズ
 	sprite_->SetSize(pushSpaceBaseSize_);
 
-	// 演出時間をリセット
+	//演出時間をリセット
 	startElapsed_ = 0.0f;
 
-	// カメラ初期化
+	//カメラ初期化
 	camera_.Initialize();
 	//カメラを手前に近づけさせる
 	camera_.translation_.z = -1.0f;
@@ -69,7 +68,19 @@ void TitleScene::Initialize()
 
 	fade_ = new Fade();
 	fade_->Initialize();
-	fade_->Start(Fade::Status::FadeIn, 1.0f);
+	
+	if (useTransition) 
+	{
+		// 他のシーンから戻ってきたときは開く演出を使う
+		phase_ = Phase::kFadeIn;
+		fade_->Start(Fade::Status::FadeIn, 0.35f);
+	} 
+	else 
+	{
+		// 起動直後はタイトルをそのまま表示する
+		phase_ = Phase::kMain;
+		fade_->Stop();
+	}
 }
 
 void TitleScene::Update()
@@ -128,7 +139,8 @@ void TitleScene::Update()
 			sprite_->SetSize(pushSpaceBaseSize_);
 
 			phase_ = Phase::kFadeOut;
-			fade_->Start(Fade::Status::FadeOut, 1.0f);
+			// ボタンのリアクション後にシャッターを閉じる
+			fade_->Start(Fade::Status::FadeOut, 0.25f);
 		}
 		break;
 	}
@@ -176,7 +188,7 @@ void TitleScene::Update()
 void TitleScene::Draw()
 {
 
-	// ① 背景
+	//背景
 	Sprite::PreDraw();
 
 	backgroundSprite_->Draw();

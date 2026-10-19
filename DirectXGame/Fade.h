@@ -3,40 +3,43 @@
 
 using namespace KamataEngine;
 
-/// <summary>
-/// フェード
-/// </summary>
-class Fade {
-
+class Fade 
+{
 public:
-	// 02_13 16枚目 フェードの状態
-	enum class Status {
-		None,    // フェードなし
-		FadeIn,  // フェードイン中
-		FadeOut, // フェードアウト中
-	};
+    enum class Status 
+    {
+        None,
+        FadeIn,   // シャッターを開く
+        FadeOut,  // シャッターを閉じる
+    };
 
-	void Initialize();
-	void Update();
-	void Draw();
+    ~Fade();
 
-	// 02_13 18枚目 フェード開始
-	void Start(Status status, float duration);
+    void Initialize();
+    void Update();
+    void Draw();
 
-	// 02_13 24枚目 フェード停止
-	void Stop();
+    void Start(Status status, float duration);
+    void Stop();
 
-	// 02_13 26枚目 フェード終了判定
-	bool IsFinished() const;
+    bool IsFinished() const;
 
 private:
-	Sprite* sprite_ = nullptr;
+    // パネルとラインの配置を更新する
+    void UpdateLayout();
 
-	// 02_13 16枚目 現在のフェードの状態
-	Status status_ = Status::None;
+    Sprite* topPanel_ = nullptr;
+    Sprite* bottomPanel_ = nullptr;
 
-	// 02_13 17枚目 フェードの持続時間
-	float duration_ = 0.0f;
-	// 02_13 17枚目 経過時間カウンター
-	float counter_ = 0.0f;
+    Sprite* topLine_ = nullptr;
+    Sprite* bottomLine_ = nullptr;
+
+    Status status_ = Status::None;
+
+    float duration_ = 0.0f;
+    float counter_ = 0.0f;
+
+    // 0：完全に開いている
+    // 1：完全に閉じている
+    float coverage_ = 0.0f;
 };

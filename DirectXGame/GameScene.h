@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include "CameraController.h"
 #include "DeathParticles.h"
 #include "MapChipField.h"
@@ -27,11 +27,32 @@ public:
 	//デストラクタ
 	~GameScene();
 
-	// ボスのHPが0ならゲームクリア
-	bool IsFinished() const { return boss_->IsDead(); }
-	bool IsDead() const { return player_->IsDead(); }
+	//// ボスのHPが0ならゲームクリア
+	//bool IsFinished() const { return boss_->IsDead(); }
+	//bool IsDead() const { return player_->IsDead(); }
+
+	// 演出完了後にゲームクリアへ進む
+    // 同時に死亡した場合はゲームオーバーを優先
+	bool IsFinished() const 
+	{
+		return finished_ && boss_->IsDead() && !player_->IsDead();
+	}
+
+	// 演出完了後にゲームオーバーへ進む
+	bool IsDead() const 
+	{
+		return finished_ && player_->IsDead();
+	}
 
 private:
+	enum class IntroPhase { kPlayerEntry, kCameraToBoss, kBossPose, kCameraReturn };
+	IntroPhase introPhase_ = IntroPhase::kPlayerEntry;
+	static constexpr float kEntryWalkDistance = 6.0f;
+	float introTargetX_ = 0.0f;
+	float introEntryTime_ = 0.0f;
+	float introStuckTime_ = 0.0f;
+	void UpdateIntro();
+	void StartBossCamera();
 
 	void GenerateBlocks();
 	//衝突判定と応答
@@ -41,6 +62,7 @@ private:
 	enum class Phase 
 	{
 		kFadeIn,
+		kIntro, // 開始演出
 		kPlay, // ゲームプレイ
 		kDeath, // デス演出
 		kFadeOut,

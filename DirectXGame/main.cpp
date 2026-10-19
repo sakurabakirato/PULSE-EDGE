@@ -24,7 +24,6 @@ enum class Scene
 // 現在シーン（型）
 Scene scene = Scene::kUnknown;
 
-// 02_12 29枚目
 void ChangeScene() 
 {
 
@@ -95,7 +94,6 @@ void ChangeScene()
 	}
 }
 
-// 02_12 31枚目
 void UpdataScene() 
 {
 	switch (scene) 
@@ -115,7 +113,6 @@ void UpdataScene()
 	}
 }
 
-// 02_12 32枚目
 void DrawScene() 
 {
 	switch (scene) 
@@ -145,9 +142,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int)
 
 	scene = Scene::kTitle;
 	titleScene = new TitleScene;
-	titleScene->Initialize();
-
-	// gameScene->Initialize();
+	titleScene->Initialize(false);
 
 	// メインループ
 	while (true) 
@@ -175,8 +170,7 @@ int WINAPI WinMain(_In_ HINSTANCE, _In_opt_ HINSTANCE, _In_ LPSTR, _In_ int)
 		dxCommon->PostDraw();
 	}
 
-	// ゲームシーンの解放
-	// 02_12 35枚目 各種解放
+	// 各種解放
 	delete titleScene;
 	delete gameScene;
 	delete gameClear;

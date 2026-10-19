@@ -1,9 +1,10 @@
-#pragma once
+﻿#pragma once
 #include "KamataEngine.h"
 #include "MapChipField.h"
 #include "Math.h"
 #include "Player.h"
 #include <list>
+#include <array>
 
 using namespace KamataEngine;
 
@@ -26,12 +27,17 @@ public:
 	/// 描画
 	/// </summary>
 	void Draw();
+	void BeginIntroPose();
+	bool UpdateIntroPose();
+	void EndIntroPose();
+	// 通常のModel::PostDraw()の後に呼ぶ。
+	void DrawIntroShockwaves();
 
-	// 02_10 スライド14枚目
+	
 	AABB GetAABB();
-	// 02_10 スライド14枚目 ワールド座標を取得
+	// ワールド座標を取得
 	Vector3 GetWorldPosition();
-	// 02_10 スライド20枚目 衝突応答
+	// 衝突応答
 	void OnCollision(Player* player);
 
 	// ふるまい
@@ -55,7 +61,7 @@ public:
 	bool IsAttack();
 
 	// ボスの最大HP
-	static inline const int kMaxHp = 10;
+	static inline const int kMaxHp = 30;
 
 	// 現在HPを取得
 	int GetHp() const { return hp_; }
@@ -65,6 +71,30 @@ public:
 
 
 private:
+	// 被弾演出。移動・当たり判定用のworldTransform_には揺れを加えない。
+	static constexpr float kHitReactionDuration = 0.18f;
+	static constexpr float kHitShakeAmplitude = 0.08f;
+	static constexpr float kHitFlashInterval = 0.045f;
+	float hitReactionTimer_ = 0.0f;
+	WorldTransform renderTransform_;
+	ObjectColor bodyColor_;
+	void UpdateHitReaction();
+	void UpdateRenderTransform();
+
+	static constexpr float kIntroPoseDuration = 1.8f;
+	static constexpr float kIntroLiftHeight = 0.65f;
+	static constexpr float kIntroTiltAngle = -0.35f;
+	static constexpr float kShockMaxRadius = 2.2f;
+	static constexpr int kShockSegments = 32;
+	bool introPoseActive_ = false;
+	float introPoseTime_ = 0.0f;
+	Vector3 introBasePosition_ = {};
+	Vector3 introBaseRotation_ = {};
+	Vector3 introBaseScale_ = {1.0f, 1.0f, 1.0f};
+	std::array<WorldTransform, kShockSegments * 2> introShockTransforms_;
+	std::array<ObjectColor, 2> introShockColors_;
+	std::array<bool, 2> introShockVisible_ = {};
+	void UpdateIntroMatrix();
 	// ワールド変換データ
 	WorldTransform worldTransform_;
 
@@ -78,11 +108,9 @@ private:
 	// 02_09 15枚目
 	Vector3 velocity_ = {};
 
-	// 02_09 19枚目
 	// 最初の角度
 	static inline const float kWalkMotionAngleStart = -10.0f;
 
-	// 02_09 19枚目
 	// 最後の角度
 	static inline const float kWalkMotionAngleEnd = 40.0f;
 
@@ -91,7 +119,7 @@ private:
 	// 02_09 20枚目
 	float walkTimer = 0.0f;
 
-	// 02_10 14枚目 当たり判定サイズ
+	// 当たり判定サイズ
 	static inline const float kWidth = 0.8f;
 	static inline const float kHeight = 0.8f;
 
@@ -104,7 +132,6 @@ private:
 	bool isCollisionDisabled = false;
 	bool gameScene = true;
 
-	// bool IsAttack();
 	Behavior behavior = Behavior::kWalk;
 	// 次の振るまいリクエスト
 	Behavior behaviorRequest = Behavior::kUnknown;
@@ -144,7 +171,7 @@ private:
 
 	std::list<Bullet> bullets_;
 
-	// 0=円形、1=ホーミング、2=3列攻撃
+	// 0 = 円形、1 = ホーミング、2 = 3列攻撃、3 = 狙い撃ち連射
 	int attackType_ = 0;
 
 	// 現在の待機中に攻撃したか
@@ -156,6 +183,42 @@ private:
 
 	// ボスの現在HP
 	int hp_ = kMaxHp;
+
+	// ボスが現在行っている行動
+	enum class Action
+	{
+		kDashReady, // 突進の予備動作
+		kDash,      // 突進
+		kRecovery   // 攻撃後の硬直
+	};
+
+	//何をしてるか
+	Action action_ = Action::kDashReady;
+
+	//何秒経ったか
+	// 現在の行動を開始してからの時間
+	float actionTimer_ = 0.0f;
+
+	// 突進方向。今回は左右だけなので、-1か1
+	float dashDirectionX_ = -1.0f;
+
+	// 調整する数値
+	static constexpr float kDeltaTime = 1.0f / 60.0f;
+	static constexpr float kDashReadyTime = 0.6f;
+	static constexpr float kDashTime = 0.35f;
+	static constexpr float kRecoveryTime = 1.0f;
+
+	// 1秒あたりの移動量
+	static constexpr float kDashSpeed = 15.0f;
+
+	// 行動の管理
+	void ChangeAction(Action next);
+	void UpdateAction();
+
+	// 各行動の具体的な処理
+	void UpdateDashReady();
+	void UpdateDash();
+	void UpdateRecovery();
 
 };
 

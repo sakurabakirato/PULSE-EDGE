@@ -15,7 +15,7 @@ public:
 	//デストラクタ
 	~TitleScene();
 	//初期化
-	void Initialize();
+	void Initialize(bool useTransition = true);
 	//更新
 	void Update();
 	//描画

@@ -1,15 +1,14 @@
 #pragma once
 #include "Skydome.h"
-
-
 #include "KamataEngine.h"
 #include "UpDate.h"
+#include "Fade.h"
 
 using namespace KamataEngine;
 
 
-class GameClear {
-
+class GameClear 
+{
 public:
 	~GameClear();
 
@@ -24,6 +23,17 @@ public:
 	
 
 private:
+
+	enum class Phase 
+	{
+		kFadeIn,
+		kMain,
+		kFadeOut
+	};
+
+	Phase phase_ = Phase::kFadeIn;
+	Fade* fade_ = nullptr;
+
 	static inline const float kTimeClearMove = 2.0f;
 
 	// ビュープロジェクション

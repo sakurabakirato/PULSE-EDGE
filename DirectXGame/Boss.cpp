@@ -1,4 +1,4 @@
-#include "Boss.h"
+﻿#include "Boss.h"
 #include <cmath>
 #include <algorithm>
 #include <cassert>
@@ -20,8 +20,14 @@ void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipF
 
 	// 02_09 7枚目
 	worldTransform_.Initialize();
+	renderTransform_.Initialize();
+	bodyColor_.Initialize();
+	hitReactionTimer_ = 0.0f;
+	hp_ = kMaxHp;
+	isDead = false;
+	bullets_.clear();
 	worldTransform_.translation_ = position;
-	// 02_09 7枚目 角度調整
+	// 角度調整
 	worldTransform_.rotation_.y = std::numbers::pi_v<float> *3.0f / 2.0f;
 
 	// 02_09 16枚目
@@ -58,6 +64,14 @@ void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipF
 
 	attackType_ = 0;
 	attackDone_ = false;
+
+	introPoseActive_ = false;
+	introPoseTime_ = 0.0f;
+	introShockVisible_.fill(false);
+	for (auto& transform : introShockTransforms_) { transform.Initialize(); }
+	for (auto& color : introShockColors_) { color.Initialize(); }
+	// 待機中も最初のフレームから正しい位置で描画する。
+	UpdateIntroMatrix();
 
 }
 
@@ -103,7 +117,8 @@ void Boss::Attack()
 				bullet.worldTransform.translation_ =
 					bossPosition;
 
-				bullet.worldTransform.scale_ = {
+				bullet.worldTransform.scale_ = 
+				{
 					0.2f,
 					0.2f,
 					0.2f
@@ -254,16 +269,22 @@ void Boss::Attack()
 		}
 	}
 
+	// 4.狙い撃ち連射
+	if (attackType_ == 3)
+	{
+
+	}
+
+
 	// 次の攻撃へ進める
 	attackType_++;
 
-	if (attackType_ >= 3)
+	if (attackType_ >= 4)
 	{
 		attackType_ = 0;
 	}
 }
 
-// 02_09 スライド5枚目
 void Boss::Update() 
 {
 
@@ -274,6 +295,8 @@ void Boss::Update()
 	}
 
 
+
+	UpdateHitReaction();
 
 	// 振る舞いの変更
 	if (behaviorRequest != Behavior::kUnknown)
@@ -408,6 +431,7 @@ void Boss::Update()
 		worldTransform_.translation_);
 
 	worldTransform_.TransferMatrix();
+	UpdateRenderTransform();
 
 	// ボスの弾を更新
 	for (auto bulletIterator = bullets_.begin();
@@ -663,16 +687,56 @@ AABB Boss::GetAABB()
 
 void Boss::OnDamage(int amount)
 {
-	hp_ -= amount;
+	// 0以下のダメージや、撃破後の追加ヒットは受け付けない。
+	if (amount <= 0 || IsDead()) { return; }
 
-	if (hp_ <= 0)
+	if (amount >= hp_)
 	{
 		hp_ = 0;
 		isDead = true;
-
-		// ボス撃破時に残っている弾を消す
+		hitReactionTimer_ = 0.0f;
 		bullets_.clear();
 	}
+	else
+	{
+		hp_ -= amount;
+		// 被弾するたびに演出を先頭から再生。行動は中断しない。
+		hitReactionTimer_ = kHitReactionDuration;
+	}
+	// Update後に当たり判定があっても、そのフレームから色を反映する。
+	UpdateRenderTransform();
+}
+
+void Boss::UpdateHitReaction()
+{
+	hitReactionTimer_ = (std::max)(0.0f, hitReactionTimer_ - 1.0f / 60.0f);
+}
+
+void Boss::UpdateRenderTransform()
+{
+	// GPUリソースを含むWorldTransform全体ではなく、座標・姿勢だけコピー。
+	renderTransform_.translation_ = worldTransform_.translation_;
+	renderTransform_.rotation_ = worldTransform_.rotation_;
+	renderTransform_.scale_ = worldTransform_.scale_;
+	bodyColor_.SetColor({1.0f, 1.0f, 1.0f, 1.0f});
+
+	if (hitReactionTimer_ > 0.0f)
+	{
+		const float elapsed = kHitReactionDuration - hitReactionTimer_;
+		const float strength = hitReactionTimer_ / kHitReactionDuration;
+		// 約3往復しながら揺れを弱める。毎回元の位置から計算する。
+		renderTransform_.translation_.x += std::sin(
+			elapsed / kHitReactionDuration * 6.0f * std::numbers::pi_v<float>)
+			* kHitShakeAmplitude * strength;
+		const int flashIndex = static_cast<int>(elapsed / kHitFlashInterval);
+		if (flashIndex % 2 == 0)
+		{
+			bodyColor_.SetColor({1.0f, 0.25f, 0.25f, 1.0f});
+		}
+	}
+	renderTransform_.matWorld_ = MakeAffineMatrix(
+		renderTransform_.scale_, renderTransform_.rotation_, renderTransform_.translation_);
+	renderTransform_.TransferMatrix();
 }
 
 // 02_10 スライド14枚目
@@ -716,7 +780,7 @@ void Boss::Draw()
 	// 02_09 スライド9枚目  モデル描画
 	if (!isDead)
 	{
-		model_->Draw(worldTransform_, *camera_);
+		model_->Draw(renderTransform_, *camera_, &bodyColor_);
 	} 
 
 	for (Bullet& bullet : bullets_)
@@ -731,4 +795,91 @@ void Boss::Draw()
 			bullet.worldTransform,
 			*camera_);
 	}
+}
+
+void Boss::UpdateIntroMatrix()
+{
+	worldTransform_.matWorld_ = MakeAffineMatrix(worldTransform_.scale_, worldTransform_.rotation_, worldTransform_.translation_);
+	worldTransform_.TransferMatrix();
+	UpdateRenderTransform();
+}
+
+void Boss::BeginIntroPose()
+{
+	introBasePosition_ = worldTransform_.translation_;
+	introBaseRotation_ = worldTransform_.rotation_;
+	introBaseScale_ = worldTransform_.scale_;
+	introPoseTime_ = 0.0f;
+	introPoseActive_ = true;
+	introShockVisible_.fill(false);
+}
+
+bool Boss::UpdateIntroPose()
+{
+	if (!introPoseActive_) { return true; }
+	introPoseTime_ = (std::min)(introPoseTime_ + 1.0f / 60.0f, kIntroPoseDuration);
+	const float t = introPoseTime_;
+	// 0～0.45秒で浮く。1.25秒から元の位置・姿勢へ戻す。
+	float amount = (std::clamp)(t / 0.45f, 0.0f, 1.0f);
+	if (t > 1.25f) { amount = 1.0f - (std::clamp)((t - 1.25f) / 0.55f, 0.0f, 1.0f); }
+	amount = amount * amount * (3.0f - 2.0f * amount);
+	const float nod = t >= 0.45f && t <= 1.25f ?
+	    std::sin((t - 0.45f) / 0.8f * 4.0f * std::numbers::pi_v<float>) : 0.0f;
+	worldTransform_.translation_ = introBasePosition_;
+	worldTransform_.translation_.y += kIntroLiftHeight * amount + nod * 0.035f;
+	worldTransform_.rotation_ = introBaseRotation_;
+	// 単一モデルなので、頭の代わりに全体をローカルX軸で軽くうなずかせる。
+	worldTransform_.rotation_.x += kIntroTiltAngle * amount + nod * 0.045f;
+	UpdateIntroMatrix();
+	for (int wave = 0; wave < 2; ++wave)
+	{
+		const float age = t - (0.55f + 0.38f * wave);
+		introShockVisible_[wave] = age >= 0.0f && age < 0.55f;
+		if (!introShockVisible_[wave]) { continue; }
+		const float progress = age / 0.55f;
+		const float radius = 0.35f + (kShockMaxRadius - 0.35f) * progress;
+		introShockColors_[wave].SetColor({0.08f, 0.65f, 1.0f, (1.0f - progress) * 0.8f});
+		for (int i = 0; i < kShockSegments; ++i)
+		{
+			const float angle = 2.0f * std::numbers::pi_v<float> * (i + 0.5f) / kShockSegments;
+			auto& transform = introShockTransforms_[wave * kShockSegments + i];
+			transform.translation_ = introBasePosition_;
+			transform.translation_.x += std::cos(angle) * radius;
+			transform.translation_.y += 0.45f + std::sin(angle) * radius;
+			transform.translation_.z -= 0.15f;
+			transform.rotation_ = {0.0f, 0.0f, angle + std::numbers::pi_v<float> / 2.0f};
+			transform.scale_ = {radius * std::sin(std::numbers::pi_v<float> / kShockSegments) * 1.15f,
+			    0.035f * (1.0f - progress) + 0.008f, 0.025f};
+			transform.matWorld_ = MakeAffineMatrix(transform.scale_, transform.rotation_, transform.translation_);
+			transform.TransferMatrix();
+		}
+	}
+	if (t >= kIntroPoseDuration) { EndIntroPose(); return true; }
+	return false;
+}
+
+void Boss::EndIntroPose()
+{
+	if (introPoseActive_)
+	{
+		worldTransform_.translation_ = introBasePosition_;
+		worldTransform_.rotation_ = introBaseRotation_;
+		worldTransform_.scale_ = introBaseScale_;
+		UpdateIntroMatrix();
+	}
+	introPoseActive_ = false;
+	introShockVisible_.fill(false);
+}
+
+void Boss::DrawIntroShockwaves()
+{
+	if (!introPoseActive_) { return; }
+	Model::PreDraw(Model::CullingMode::kBack, Model::BlendMode::kNormal, Model::DepthTestMode::kReadOnly);
+	for (int wave = 0; wave < 2; ++wave)
+	{
+		if (!introShockVisible_[wave]) { continue; }
+		for (int i = 0; i < kShockSegments; ++i)
+		{ bulletModel_->Draw(introShockTransforms_[wave * kShockSegments + i], *camera_, &introShockColors_[wave]); }
+	}
+	Model::PostDraw();
 }
