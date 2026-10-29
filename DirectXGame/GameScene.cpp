@@ -15,8 +15,8 @@ GameScene::~GameScene()
 		voiceHandle = 0;
 	}
 
-	delete sprite_;
-	delete hpBarBack_;
+	delete bossHpBar_;
+	delete bossHpBarBack_;
 	delete playerHpBar_;
 	delete playerHpBarBack_;
 	delete debugCamera_;
@@ -44,6 +44,8 @@ GameScene::~GameScene()
 	delete fade_;
 	delete CController_;
 	delete modelSkydome_;
+	delete modelGameOver_;
+	delete gameOverOverlay_;
 }
 
 void GameScene::Initialize() 
@@ -108,61 +110,8 @@ void GameScene::Initialize()
 	Vector3 bossPosition = mapChipField_->GetMapChipPositionByIndex(50, 13);// 中央足場の上から出現
 	boss_->Initialize(modelBoss_, modelBossBullet_, &camera_, mapChipField_, player_, bossPosition);
 
-	//----------------ボスHPバー----------------//
-
-	// 1×1の白い画像を読み込む
-	HPtextureHandle_ = TextureManager::Load("white1x1.png");
-
-	// HPバーの背景
-	hpBarBack_ = Sprite::Create(HPtextureHandle_, { 390.0f, 40.0f });
-	hpBarBack_->SetAnchorPoint({ 0.0f, 0.0f });
-	hpBarBack_->SetSize({ 500.0f, 30.0f });
-	hpBarBack_->SetColor({
-		0.1f,
-		0.1f,
-		0.1f,
-		1.0f
-		});
-
-	// 現在HPを表す赤いバー
-	sprite_ = Sprite::Create(HPtextureHandle_, { 390.0f, 40.0f });
-
-	sprite_->SetAnchorPoint({ 0.0f, 0.0f });
-	sprite_->SetSize({ 500.0f, 30.0f });
-	sprite_->SetColor({
-		1.0f,
-		0.0f,
-		0.0f,
-		1.0f
-		});
-
-	//----------------プレイヤーHPバー----------------//
-
-	playerHpBarBack_ = Sprite::Create(
-		HPtextureHandle_,
-		{40.0f, 660.0f });
-
-	playerHpBarBack_->SetAnchorPoint({0.0f, 0.0f});
-	playerHpBarBack_->SetSize({250.0f, 20.0f});
-	playerHpBarBack_->SetColor({
-		0.1f,
-		0.1f,
-		0.1f,
-		1.0f
-		});
-
-	playerHpBar_ = Sprite::Create(
-		HPtextureHandle_,
-		{40.0f, 660.0f });
-
-	playerHpBar_->SetAnchorPoint({0.0f, 0.0f});
-	playerHpBar_->SetSize({250.0f, 20.0f});
-	playerHpBar_->SetColor({
-		0.0f,
-		0.8f,
-		0.2f,
-		1.0f
-		});
+	InitializaHpBars();
+	InitializeGameOverUI();
 
 	//-------------デスパーティクル-----------//
 	//モデル読み込み
@@ -178,6 +127,8 @@ void GameScene::Initialize()
 	fade_->Start(Fade::Status::FadeIn, 0.35f);
 
 	finished_ = false;
+	returnToTitleRequested_ = false;
+	gameOverSpaceReady_ = false;
 	introPhase_ = IntroPhase::kPlayerEntry;
 	introTargetX_ = playerPosition.x + kEntryWalkDistance;
 	introEntryTime_ = 0.0f;
@@ -217,30 +168,21 @@ void GameScene::GenerateBlocks()
 
 void GameScene::Update() 
 {
-	const Phase phaseAtStart = phase_;
+
 	switch (phase_) 
 	{
 	case Phase::kIntro:
 		UpdateIntro();
 		break;
 	case Phase::kPlay:
-
+		UpdatePlay();
+		UpdateHpBars();
 		break;
 	case Phase::kDeath:
-		if (deathParticles_) 
-		{
-			deathParticles_->Update();
-
-			if (deathParticles_->IsFinished()) 
-			{
-				phase_ = Phase::kFadeOut;
-
-				fade_->Start(
-					Fade::Status::FadeOut,
-					0.25f
-				);
-			}
-		}
+		UpdateDeath();
+		break;
+	case Phase::kGameOver:
+		UpdateGameOver();
 		break;
 	case Phase::kFadeIn:
 		fade_->Update();
@@ -263,34 +205,10 @@ void GameScene::Update()
 	// 天球更新
 	skydome_->Update();
 
-	// 通常プレイ中だけキャラクターと当たり判定を更新する
-	if (phaseAtStart == Phase::kPlay && phase_ == Phase::kPlay) 
-	{
-		player_->Update();
-		boss_->Update();
+	UpdateCamera();
 
-		CheckAllCollisions();
-		ChangePhase();
-	}
+	
 
-	//----------------ボスHPバー更新----------------//
-	float hpRatio = static_cast<float>(boss_->GetHp()) / static_cast<float>(boss_->GetMaxHp());
-
-	if (hpRatio < 0.0f)
-	{
-		hpRatio = 0.0f;
-	}
-
-	sprite_->SetSize({ 500.0f * hpRatio, 30.0f });
-
-	float playerHpRatio = static_cast<float>(player_->GetHp()) / 3.0f;
-
-	if (playerHpRatio < 0.0f)
-	{
-		playerHpRatio = 0.0f;
-	}
-
-	playerHpBar_->SetSize({ 250.0f * playerHpRatio, 20.0f });
 
 	// ゲームオーバーまたはボス撃破時に戦闘BGMを停止
 	// シーンが切り替わる前の更新で確実に止める
@@ -298,20 +216,6 @@ void GameScene::Update()
 	{
 		Audio::GetInstance()->StopWave(voiceHandle);
 		voiceHandle = 0;
-	}
-	
-
-	// 演出中はUpdateIntroがカメラを管理。追従で上書きしない。
-	if (phase_ == Phase::kPlay)
-	{
-		if (isDebugCameraActive_)
-		{
-			debugCamera_->Update();
-			camera_.matView = debugCamera_->GetCamera().matView;
-			camera_.matProjection = debugCamera_->GetCamera().matProjection;
-			camera_.TransferMatrix();
-		}
-		else { CController_->Updata(); }
 	}
 
 	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) 
@@ -327,9 +231,6 @@ void GameScene::Update()
 			worldTransformBlock->TransferMatrix();
 		}
 	}
-
-
-
 }
 
 void GameScene::Draw() 
@@ -337,52 +238,41 @@ void GameScene::Draw()
 
 	Model::PreDraw();
 
-	//ブロックの描画
-	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_) 
-	{
-		for (WorldTransform*& worldTransformBlock : worldTransformBlockLine) 
-		{
-			if (!worldTransformBlock)
-				continue;
-			blockModel_->Draw(*worldTransformBlock, camera_);
-		}
-	}
-	//自キャラ描画
-	if (phase_ == Phase::kPlay || phase_ == Phase::kFadeIn || phase_ == Phase::kIntro) 
-	{
-		player_->Draw();
-	}
-
-	//天球描画
-	skydome_->Draw();
-
-	boss_->Draw();
-
-	//デスパーティクルあれば描画
-	if (deathParticles_) 
-	{
-		deathParticles_->Draw();
-	}
+	DrawPlay3D();
 
 	Model::PostDraw();
 
-	// 追加：残像・斬撃・ビームを描画
-	if (phase_ == Phase::kPlay) { player_->DrawAttackEffects(); }
+	// 残像・斬撃・ビームを描画
+	if (phase_ == Phase::kPlay)
+	{
+		player_->DrawAttackEffects();
+	}
 	boss_->DrawIntroShockwaves();
-
-	//----------------ボスHPバー描画----------------//
 
 	Sprite::PreDraw(DirectXCommon::GetInstance()->GetCommandList());
 
-	if (phase_ != Phase::kIntro && phase_ != Phase::kFadeIn)
+	DrawUI();
+
+	if (phase_ == Phase::kGameOver)
 	{
-		hpBarBack_->Draw();
-		sprite_->Draw();
-		playerHpBarBack_->Draw();
-		playerHpBar_->Draw();
+		gameOverOverlay_->Draw();
 	}
 
 	Sprite::PostDraw();
+
+	// 暗幕の上に3DのGAME OVERを描画
+	if (phase_ == Phase::kGameOver)
+	{
+		Model::PreDraw(
+			Model::CullingMode::kBack,
+			Model::BlendMode::kNormal,
+			Model::DepthTestMode::kOff);
+
+		modelGameOver_->Draw(
+			worldTransformGameOver_, gameOverCamera_);
+
+		Model::PostDraw();
+	}
 
 	fade_->Draw();
 }
@@ -422,7 +312,7 @@ void GameScene::ChangePhase()
 		if (player_->IsDead()) 
 		{
 			// 死亡パーティクルを開始
-			phase_ = Phase::kDeath;
+			/*phase_ = Phase::kDeath;*/
 
 			const Vector3& position =
 				player_->GetWorldPosition();
@@ -434,6 +324,7 @@ void GameScene::ChangePhase()
 				&camera_,
 				position
 			);
+			BeginGameOver();
 		} 
 		else if (boss_->IsDead()) 
 		{
@@ -458,6 +349,93 @@ void GameScene::StartBossCamera()
 	introPhase_ = IntroPhase::kCameraToBoss;
 }
 
+/////////////////////////プレイヤー、ボスのHPバー生成/////////////////////////
+void GameScene::InitializaHpBars()
+{
+	//----------------ボスHPバー----------------//
+
+	// 1×1の白い画像を読み込む
+	HPtextureHandle_ = TextureManager::Load("white1x1.png");
+
+	// HPバーの背景
+	bossHpBarBack_ = Sprite::Create(HPtextureHandle_, { 390.0f, 40.0f });
+	bossHpBarBack_->SetAnchorPoint({ 0.0f, 0.0f });
+	bossHpBarBack_->SetSize({ 500.0f, 30.0f });
+	bossHpBarBack_->SetColor({
+		0.1f,
+		0.1f,
+		0.1f,
+		1.0f
+		});
+
+	// 現在HPを表す赤いバー
+	bossHpBar_ = Sprite::Create(HPtextureHandle_, { 390.0f, 40.0f });
+
+	bossHpBar_->SetAnchorPoint({ 0.0f, 0.0f });
+	bossHpBar_->SetSize({ 500.0f, 30.0f });
+	bossHpBar_->SetColor({
+		1.0f,
+		0.0f,
+		0.0f,
+		1.0f
+		});
+
+	//----------------プレイヤーHPバー----------------//
+
+	playerHpBarBack_ = Sprite::Create(
+		HPtextureHandle_,
+		{ 40.0f, 660.0f });
+
+	playerHpBarBack_->SetAnchorPoint({ 0.0f, 0.0f });
+	playerHpBarBack_->SetSize({ 250.0f, 20.0f });
+	playerHpBarBack_->SetColor({
+		0.1f,
+		0.1f,
+		0.1f,
+		1.0f
+		});
+
+	playerHpBar_ = Sprite::Create(
+		HPtextureHandle_,
+		{ 40.0f, 660.0f });
+
+	playerHpBar_->SetAnchorPoint({ 0.0f, 0.0f });
+	playerHpBar_->SetSize({ 250.0f, 20.0f });
+	playerHpBar_->SetColor({
+		0.0f,
+		0.8f,
+		0.2f,
+		1.0f
+		});
+}
+
+void GameScene::InitializeGameOverUI()
+{
+	gameOverAlpha_ = 0.0f;
+
+	// HPバーと同じ白い画像を使って、別のスプライトを作る
+	gameOverOverlay_ = Sprite::Create(HPtextureHandle_, { 0.0f, 0.0f });
+
+	gameOverOverlay_->SetAnchorPoint({ 0.0f, 0.0f });
+	gameOverOverlay_->SetSize({ 1280.0f, 720.0f });
+	gameOverOverlay_->SetColor({ 0.0f, 0.0f, 0.0f, gameOverAlpha_ });
+
+	modelGameOver_ = Model::CreateFromOBJ("GameOver", true);
+
+	gameOverCamera_.Initialize();
+
+	worldTransformGameOver_.Initialize();
+	worldTransformGameOver_.scale_ = { 2.0f, 2.0f, 2.0f };
+	worldTransformGameOver_.translation_ = { 0.0f, 10.0f, 0.0f };
+
+	worldTransformGameOver_.matWorld_ = MakeAffineMatrix(
+		worldTransformGameOver_.scale_,
+		worldTransformGameOver_.rotation_,
+		worldTransformGameOver_.translation_);
+
+	worldTransformGameOver_.TransferMatrix();
+}
+
 void GameScene::UpdateIntro()
 {
 	constexpr float dt = 1.0f / 60.0f;
@@ -480,7 +458,9 @@ void GameScene::UpdateIntro()
 		// CSV未確認のため、障害物で止まっても開始不能にならない保険。
 		// 通常は指定Xへ到達して次へ進む。停止位置はマップに合わせて調整する。
 		if (arrived || introStuckTime_ >= 0.7f || introEntryTime_ >= 4.0f)
-		{ StartBossCamera(); }
+		{ 
+			StartBossCamera(); 
+		}
 		break;
 	}
 	case IntroPhase::kCameraToBoss:
@@ -506,5 +486,179 @@ void GameScene::UpdateIntro()
 			voiceHandle = Audio::GetInstance()->PlayWave(BGMHandle, true, 0.15f);
 		}
 		break;
+	}
+}
+
+///////////////////プレイヤー更新、ボス更新、当たり判定、勝敗確認//////////////
+void GameScene::UpdatePlay()
+{
+
+	const Phase phaseAtStart = phase_;
+
+	// 通常プレイ中だけキャラクターと当たり判定を更新する
+	if (phaseAtStart == Phase::kPlay && phase_ == Phase::kPlay)
+	{
+		player_->Update();
+		boss_->Update();
+
+		CheckAllCollisions();
+		ChangePhase();
+	}
+}
+////////////////////死亡パーティクルの更新と終了確認///////////////////
+void GameScene::UpdateDeath()
+{
+	if (deathParticles_)
+	{
+		deathParticles_->Update();
+
+		if (deathParticles_->IsFinished())
+		{
+			phase_ = Phase::kGameOver;
+
+			fade_->Start(
+				Fade::Status::FadeOut,
+				0.25f
+			);
+		}
+	}
+}
+
+void GameScene::UpdateGameOver()
+{
+	// 背景のボスと弾は動かし続ける
+	boss_->Update();
+
+	// 死亡パーティクルも最後まで動かす
+	if (deathParticles_)
+	{
+		deathParticles_->Update();
+
+		if (deathParticles_->IsFinished())
+		{
+			delete deathParticles_;
+			deathParticles_ = nullptr;
+		}
+	}
+
+	// 約0.4秒で、透明度0.65まで暗くする
+	constexpr float dt = 1.0f / 60.0f;
+	constexpr float targetAlpha = 0.65f;
+	constexpr float fadeDuration = 0.4f;
+
+	gameOverAlpha_ += (targetAlpha / fadeDuration) * dt;
+
+	if (gameOverAlpha_ > targetAlpha)
+	{
+		gameOverAlpha_ = targetAlpha;
+	}
+
+	// 計算した透明度を見た目へ反映する
+	gameOverOverlay_->SetColor(
+		{ 0.0f, 0.0f, 0.0f, gameOverAlpha_ });
+	// 暗幕が表示された後、新しくSPACEを押したらタイトルへ戻る
+	if (!Input::GetInstance()->PushKey(DIK_SPACE))
+	{
+		gameOverSpaceReady_ = true;
+	}
+	if (gameOverSpaceReady_ && gameOverAlpha_ >= targetAlpha &&
+		Input::GetInstance()->TriggerKey(DIK_SPACE))
+	{
+		returnToTitleRequested_ = true;
+	}
+}
+/////////////////////プレイヤーとボスのHPバー更新/////////////////////
+void GameScene::UpdateHpBars()
+{
+	//----------------ボスHPバー更新----------------//
+	float hpRatio = static_cast<float>(boss_->GetHp()) / static_cast<float>(boss_->GetMaxHp());
+
+	if (hpRatio < 0.0f)
+	{
+		hpRatio = 0.0f;
+	}
+
+	bossHpBar_->SetSize({ 500.0f * hpRatio, 30.0f });
+
+	float playerHpRatio = static_cast<float>(player_->GetHp()) / 3.0f;
+
+	if (playerHpRatio < 0.0f)
+	{
+		playerHpRatio = 0.0f;
+	}
+
+	playerHpBar_->SetSize({ 250.0f * playerHpRatio, 20.0f });
+}
+
+void GameScene::UpdateCamera()
+{
+	// 演出中はUpdateIntroがカメラを管理。追従で上書きしない。
+	if (phase_ == Phase::kPlay)
+	{
+		if (isDebugCameraActive_)
+		{
+			debugCamera_->Update();
+			camera_.matView = debugCamera_->GetCamera().matView;
+			camera_.matProjection = debugCamera_->GetCamera().matProjection;
+			camera_.TransferMatrix();
+		} 
+		else 
+		{ 
+			CController_->Updata(); 
+		}
+	}
+}
+
+void GameScene::BeginGameOver()
+{
+	returnToTitleRequested_ = false;
+	// ジャンプで押していたSPACEを一度離してから受け付ける
+	gameOverSpaceReady_ = !Input::GetInstance()->PushKey(DIK_SPACE);
+	phase_ = Phase::kGameOver;
+	gameOverAlpha_ = 0.0f;
+
+	gameOverOverlay_->SetColor({ 0.0f, 0.0f, 0.0f, gameOverAlpha_ });
+
+}
+
+void GameScene::DrawPlay3D()
+{
+
+	// 天球描画
+	skydome_->Draw();
+
+	// ブロックの描画
+	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_)
+	{
+		for (WorldTransform*& worldTransformBlock : worldTransformBlockLine)
+		{
+			if (!worldTransformBlock)
+				continue;
+			blockModel_->Draw(*worldTransformBlock, camera_);
+		}
+	}
+	// 自キャラ描画
+	if (phase_ == Phase::kPlay || phase_ == Phase::kFadeIn || phase_ == Phase::kIntro)
+	{
+		player_->Draw();
+	}
+
+	boss_->Draw();
+
+	// デスパーティクルあれば描画
+	if (deathParticles_)
+	{
+		deathParticles_->Draw();
+	}
+}
+
+void GameScene::DrawUI()
+{
+	if (phase_ != Phase::kIntro && phase_ != Phase::kFadeIn)
+	{
+		bossHpBarBack_->Draw();
+		bossHpBar_->Draw();
+		playerHpBarBack_->Draw();
+		playerHpBar_->Draw();
 	}
 }

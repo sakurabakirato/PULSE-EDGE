@@ -1,4 +1,4 @@
-#include "GameScene.h"
+﻿#include "GameScene.h"
 #include "KamataEngine.h"
 #include "TitleScene.h"
 #include "GameClear.h"
@@ -42,20 +42,19 @@ void ChangeScene()
 		break;
 
 	case Scene::kGame:
-		// 自機が死亡した
-		if (gameScene->IsDead())
+		if (gameScene->IsReturnToTitleRequested())
 		{
-			// ゲームオーバーへ変更
-			scene = Scene::kOver;
-
-			gameOver = new GameOver();
-			gameOver->Initialize();
-
 			delete gameScene;
 			gameScene = nullptr;
+
+			titleScene = new TitleScene();
+			titleScene->Initialize();
+			scene = Scene::kTitle;
+			break;
 		}
+
 		// ゲームをクリアした
-		else if (gameScene->IsFinished())
+		if (gameScene->IsFinished())
 		{
 			// ゲームクリアへ変更
 			scene = Scene::kClear;

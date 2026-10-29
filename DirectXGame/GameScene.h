@@ -27,10 +27,6 @@ public:
 	//デストラクタ
 	~GameScene();
 
-	//// ボスのHPが0ならゲームクリア
-	//bool IsFinished() const { return boss_->IsDead(); }
-	//bool IsDead() const { return player_->IsDead(); }
-
 	// 演出完了後にゲームクリアへ進む
     // 同時に死亡した場合はゲームオーバーを優先
 	bool IsFinished() const 
@@ -44,14 +40,34 @@ public:
 		return finished_ && player_->IsDead();
 	}
 
+	// タイトルへ戻る要求をシーン管理側へ通知する
+	bool IsReturnToTitleRequested() const { return returnToTitleRequested_; }
+
 private:
+	bool returnToTitleRequested_ = false;
+	bool gameOverSpaceReady_ = false;
 	enum class IntroPhase { kPlayerEntry, kCameraToBoss, kBossPose, kCameraReturn };
 	IntroPhase introPhase_ = IntroPhase::kPlayerEntry;
 	static constexpr float kEntryWalkDistance = 6.0f;
 	float introTargetX_ = 0.0f;
 	float introEntryTime_ = 0.0f;
 	float introStuckTime_ = 0.0f;
+
+	void InitializaHpBars();
+	void InitializeGameOverUI();
+
 	void UpdateIntro();
+	void UpdatePlay();    //プレイヤー更新、ボス更新、当たり判定、勝敗確認
+	void UpdateDeath();   //死亡パーティクルの更新と終了確認
+	void UpdateGameOver();//暗くする処理、リスタート入力の確認
+	void UpdateHpBars();  //プレイヤーとボスのHPバー更新
+	void UpdateCamera();  //通常カメラとデバックカメラの切り替え
+
+	void BeginGameOver(); //ゲームオーバーに入る状態
+
+	void DrawPlay3D();    //ステージ、キャラクターなどの3D描画
+	void DrawUI();        //HPバーなどの通常UI描画
+
 	void StartBossCamera();
 
 	void GenerateBlocks();
@@ -65,22 +81,21 @@ private:
 		kIntro, // 開始演出
 		kPlay, // ゲームプレイ
 		kDeath, // デス演出
+		kGameOver,
 		kFadeOut,
 	};
 
-	// 02_12 4枚目 ゲームの現在フェーズ（変数）
+	// ゲームの現在フェーズ（変数）
 	Phase phase_;
 
 	// HPバー用テクスチャ
 	uint32_t HPtextureHandle_ = 0;
 
-	// 現在HP
-	Sprite* sprite_ = nullptr;
+	// ボスHPバー、背景
+	Sprite* bossHpBar_ = nullptr;
+	Sprite* bossHpBarBack_ = nullptr;
 
-	// HPバーの背景
-	Sprite* hpBarBack_ = nullptr;
-
-	// プレイヤーHPバー
+	// プレイヤーHPバー、背景
 	Sprite* playerHpBar_ = nullptr;
 	Sprite* playerHpBarBack_ = nullptr;
 
@@ -113,11 +128,17 @@ private:
 
 	MapChipField* mapChipField_;
 
-	// 02_12 26枚目
 	bool finished_ = false;
 
 	//BGM
 	uint32_t BGMHandle = 0;
 	uint32_t voiceHandle = 0;
+
+	float gameOverAlpha_ = 0.0f; // 暗幕の透明度
+	Sprite* gameOverOverlay_ = nullptr; // 画面を覆う暗幕
+
+	Model* modelGameOver_ = nullptr;
+	WorldTransform worldTransformGameOver_;
+	Camera gameOverCamera_;
 
 };

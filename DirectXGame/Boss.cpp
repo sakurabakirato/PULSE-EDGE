@@ -18,7 +18,6 @@ void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipF
 	bulletModel_ = bulletModel;
 	player_ = player;
 
-	// 02_09 7枚目
 	worldTransform_.Initialize();
 	renderTransform_.Initialize();
 	bodyColor_.Initialize();
@@ -30,12 +29,10 @@ void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipF
 	// 角度調整
 	worldTransform_.rotation_.y = std::numbers::pi_v<float> *3.0f / 2.0f;
 
-	// 02_09 16枚目
 	velocity_ = { -kWalkSpeed, 0, 0 };
 
 	isFacingRight_ = false;
 
-	// 02_09 20枚目
 	walkTimer = 0.0f;
 
 	// ---- AABB 初期化 ----
@@ -72,6 +69,7 @@ void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipF
 	for (auto& color : introShockColors_) { color.Initialize(); }
 	// 待機中も最初のフレームから正しい位置で描画する。
 	UpdateIntroMatrix();
+	ChangeAction(Action::kDashReady);
 
 }
 
@@ -144,7 +142,8 @@ void Boss::Attack()
 		const int bulletCount = 5;
 
 		// 弾ごとに発射タイミングを変える
-		float launchDelays[bulletCount] = {
+		float launchDelays[bulletCount] = 
+		{
 			0.00f,
 			0.12f,
 			0.28f,
@@ -153,7 +152,8 @@ void Boss::Attack()
 		};
 
 		// 弾ごとに左右の広がりを変える
-		float sideSpeeds[bulletCount] = {
+		float sideSpeeds[bulletCount] = 
+		{
 			-0.07f,
 			-0.035f,
 			0.0f,
@@ -162,7 +162,8 @@ void Boss::Attack()
 		};
 
 		// 弾ごとに上方向の速度を変える
-		float upSpeeds[bulletCount] = {
+		float upSpeeds[bulletCount] = 
+		{
 			0.17f,
 			0.20f,
 			0.18f,
@@ -183,7 +184,8 @@ void Boss::Attack()
 
 			bullet.worldTransform.translation_.y += 0.6f;
 
-			bullet.worldTransform.scale_ = {
+			bullet.worldTransform.scale_ = 
+			{
 				0.45f,
 				0.45f,
 				0.45f
@@ -285,6 +287,90 @@ void Boss::Attack()
 	}
 }
 
+void Boss::ChangeAction(Action next)
+{
+	action_ = next;
+	actionTimer_ = 0.0f;
+	velocity_ = {};
+
+	// 予備動作に入った瞬間だけ、突進方向を決める
+	if (action_ == Action::kDashReady)
+	{
+		const Vector3 playerPosition =
+			player_->GetWorldPosition();
+
+		dashDirectionX_ =
+			playerPosition.x >= worldTransform_.translation_.x
+			? 1.0f
+			: -1.0f;
+
+		// プレイヤー側を向く
+		worldTransform_.rotation_.y =
+			dashDirectionX_ > 0.0f
+			? std::numbers::pi_v<float> / 2.0f
+			: std::numbers::pi_v<float> *3.0f / 2.0f;
+	}
+}
+
+void Boss::UpdateAction()
+{
+	actionTimer_ += kDeltaTime;
+
+	switch (action_)
+	{
+	case Action::kDashReady:
+		UpdateDashReady();
+		break;
+
+	case Action::kDash:
+		UpdateDash();
+		break;
+
+	case Action::kRecovery:
+		UpdateRecovery();
+		break;
+	}
+}
+
+void Boss::UpdateDashReady()
+{
+	// この段階では移動しない。
+   // 構える姿勢などの表示演出も、後でここに対応させる。
+
+	if (actionTimer_ >= kDashReadyTime)
+	{
+		ChangeAction(Action::kDash);
+	}
+}
+
+void Boss::UpdateDash()
+{
+	const float moveX =
+		dashDirectionX_ * kDashSpeed * kDeltaTime;
+
+	worldTransform_.translation_.x += moveX;
+
+	// 実装時はここに壁との衝突判定が必要。
+	// 壁に当たったら位置を補正し、
+	// ChangeAction(Action::kRecovery)で突進を終了する。
+
+	if (actionTimer_ >= kDashTime)
+	{
+		ChangeAction(Action::kRecovery);
+	}
+}
+
+void Boss::UpdateRecovery()
+{
+	// この間もダメージは受け付ける。
+    // 移動と新しい攻撃は行わない。
+
+	if (actionTimer_ >= kRecoveryTime)
+	{
+		ChangeAction(Action::kDashReady);
+	}
+}
+
 void Boss::Update() 
 {
 
@@ -294,9 +380,22 @@ void Boss::Update()
 		return;
 	}
 
-
-
+	// 被弾演出の時間を更新
 	UpdateHitReaction();
+
+	// 現在の行動を更新
+	UpdateAction();
+
+	// 移動結果を当たり判定用の行列へ反映
+	worldTransform_.matWorld_ = MakeAffineMatrix(
+		worldTransform_.scale_,
+		worldTransform_.rotation_,
+		worldTransform_.translation_);
+
+	worldTransform_.TransferMatrix();
+
+	// 被弾時の揺れなどを表示用の位置へ反映
+	UpdateRenderTransform();
 
 	// 振る舞いの変更
 	if (behaviorRequest != Behavior::kUnknown)
@@ -423,15 +522,6 @@ void Boss::Update()
 		}
 		break;
 	}
-
-	// ワールド行列を更新
-	worldTransform_.matWorld_ = MakeAffineMatrix(
-		worldTransform_.scale_,
-		worldTransform_.rotation_,
-		worldTransform_.translation_);
-
-	worldTransform_.TransferMatrix();
-	UpdateRenderTransform();
 
 	// ボスの弾を更新
 	for (auto bulletIterator = bullets_.begin();
@@ -563,7 +653,8 @@ void Boss::Update()
 						bullet.worldTransform.translation_.y =
 							blockRect.top + 0.25f;
 
-						bullet.velocity = {
+						bullet.velocity = 
+						{
 							0.0f,
 							0.0f,
 							0.0f
@@ -575,7 +666,8 @@ void Boss::Update()
 						// 同じタイマーを爆発時間に再利用
 						bullet.lifeTimer = 0.0f;
 
-						bullet.worldTransform.scale_ = {
+						bullet.worldTransform.scale_ = 
+						{
 							0.45f,
 							0.45f,
 							0.45f
@@ -615,7 +707,8 @@ void Boss::Update()
 
 		AABB bulletAABB = {};
 
-		bulletAABB.min = {
+		bulletAABB.min = 
+		{
 			bullet.worldTransform.translation_.x -
 				bulletHalfSize,
 			bullet.worldTransform.translation_.y -
@@ -624,7 +717,8 @@ void Boss::Update()
 				bulletHalfSize
 		};
 
-		bulletAABB.max = {
+		bulletAABB.max = 
+		{
 			bullet.worldTransform.translation_.x +
 				bulletHalfSize,
 			bullet.worldTransform.translation_.y +
@@ -672,7 +766,6 @@ void Boss::Update()
 
 }
 
-// 02_10 スライド14枚目
 AABB Boss::GetAABB() 
 {
 	Vector3 worldPos = GetWorldPosition();
@@ -688,7 +781,10 @@ AABB Boss::GetAABB()
 void Boss::OnDamage(int amount)
 {
 	// 0以下のダメージや、撃破後の追加ヒットは受け付けない。
-	if (amount <= 0 || IsDead()) { return; }
+	if (amount <= 0 || IsDead()) 
+	{
+		return; 
+	}
 
 	if (amount >= hp_)
 	{
@@ -739,7 +835,6 @@ void Boss::UpdateRenderTransform()
 	renderTransform_.TransferMatrix();
 }
 
-// 02_10 スライド14枚目
 Vector3 Boss::GetWorldPosition()
 {
 
@@ -753,7 +848,6 @@ Vector3 Boss::GetWorldPosition()
 	return worldPos;
 }
 
-// 02_10 スライド20枚目
 void Boss::OnCollision(Player* player)
 {
 	(void)player;
@@ -774,7 +868,6 @@ void Boss::OnCollision(Player* player)
 	}
 }
 
-// 02_09 スライド5枚目
 void Boss::Draw()
 {
 	// 02_09 スライド9枚目  モデル描画

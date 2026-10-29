@@ -103,9 +103,8 @@ private:
 
 	Camera* camera_ = nullptr;
 
-	// 02_09 15枚目
 	static inline const float kWalkSpeed = 0.2f;
-	// 02_09 15枚目
+	
 	Vector3 velocity_ = {};
 
 	// 最初の角度
