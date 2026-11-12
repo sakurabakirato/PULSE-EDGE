@@ -110,7 +110,31 @@ public:
 	// GameSceneの攻撃判定から呼ぶ。命中済みの同じ攻撃は再適用しない。
 	bool TryHitBoss(Boss* boss);
 
+// ボスはGameSceneが所有。ブリンクの停止位置の計算だけに参照する。
+    void SetBoss(Boss* boss) { boss_ = boss; }
+
 private:
+    Boss* boss_ = nullptr;
+    static constexpr float kBlinkInvincibleTime = 0.25f;
+    static constexpr float kJustDodgeWindow = 0.10f;
+    float blinkInvincibleTimer_ = 0.0f;
+    float justDodgeTimer_ = 0.0f;
+    bool justDodgeSucceeded_ = false;
+    bool hasEmpoweredAttack_ = false;
+    bool currentAttackEmpowered_ = false;
+    float dodgeFlashTimer_ = 0.0f;
+    float impactTimer_ = 0.0f;
+    float feedbackTime_ = 0.0f;
+    Vector3 dodgeFlashPosition_{};
+    Vector3 impactPosition_{};
+    static constexpr int kFeedbackSegments = 24;
+    std::array<WorldTransform, kFeedbackSegments * 3> feedbackTransforms_;
+    std::array<ObjectColor, 3> feedbackColors_;
+    void TryJustDodge();
+    void UpdateCombatFeedback();
+    void DrawCombatFeedback();
+    float LimitMoveAgainstBoss(float move);
+
 	// ブリンク攻撃。既存と同じ60Hz更新を前提とする。
 	static constexpr float kBlinkDistance = 2.4f;
 	static constexpr float kBlinkCooldown = 0.45f;

@@ -109,6 +109,7 @@ void GameScene::Initialize()
 	//ボスの位置決めてボスクラス初期化
 	Vector3 bossPosition = mapChipField_->GetMapChipPositionByIndex(50, 13);// 中央足場の上から出現
 	boss_->Initialize(modelBoss_, modelBossBullet_, &camera_, mapChipField_, player_, bossPosition);
+	player_->SetBoss(boss_);
 
 	InitializaHpBars();
 	InitializeGameOverUI();
@@ -206,9 +207,6 @@ void GameScene::Update()
 	skydome_->Update();
 
 	UpdateCamera();
-
-	
-
 
 	// ゲームオーバーまたはボス撃破時に戦闘BGMを停止
 	// シーンが切り替わる前の更新で確実に止める

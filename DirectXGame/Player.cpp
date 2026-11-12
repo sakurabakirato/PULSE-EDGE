@@ -25,6 +25,11 @@ void Player::Initialize(Model* model, Camera* camera, const Vector3& position)
 	camera_ = camera;
 
 	worldTransform_.Initialize();
+    blinkInvincibleTimer_ = justDodgeTimer_ = dodgeFlashTimer_ = impactTimer_ = feedbackTime_ = 0.0f;
+    justDodgeSucceeded_ = hasEmpoweredAttack_ = currentAttackEmpowered_ = false;
+    for (auto& transform : feedbackTransforms_) { transform.Initialize(); }
+    for (auto& color : feedbackColors_) { color.Initialize(); }
+
 	worldTransform_.translation_ = position;
 	worldTransform_.rotation_.y = std::numbers::pi_v<float> / 2.0f;
 
@@ -99,6 +104,8 @@ void Player::InputMove()
 	{
 		isDashing_ = true;
 		dashTimer_ = kDashDuration;
+        justDodgeTimer_ = kJustDodgeWindow;
+        justDodgeSucceeded_ = false;
 		dashCooldownTimer_ = kDashCooldown;
 
 		if (!onGround_)
@@ -555,6 +562,11 @@ void Player::Update()
 {
 	if (isDead_) { return; }
 	constexpr float dt = 1.0f / 60.0f;
+    blinkInvincibleTimer_ = (std::max)(0.0f, blinkInvincibleTimer_ - dt);
+    justDodgeTimer_ = (std::max)(0.0f, justDodgeTimer_ - dt);
+    dodgeFlashTimer_ = (std::max)(0.0f, dodgeFlashTimer_ - dt);
+    impactTimer_ = (std::max)(0.0f, impactTimer_ - dt);
+    feedbackTime_ += dt;
 	blinkCooldownTimer_ = (std::max)(0.0f, blinkCooldownTimer_ - dt);
 	blinkRecoveryTimer_ = (std::max)(0.0f, blinkRecoveryTimer_ - dt);
 	if (attackEffectTimer_ > 0.0f)
@@ -618,6 +630,10 @@ void Player::Update()
 	// 衝突情報を初期化
 	CollisionMapInfo collisionMapInfo = {};
 	collisionMapInfo.move = velocity_;
+    if (blinkInvincibleTimer_ > 0.0f)
+    {
+        collisionMapInfo.move.x = LimitMoveAgainstBoss(collisionMapInfo.move.x);
+    }
 	// 移動量に速度の値をコピー
 	//  マップ衝突チェック(02_07 スライド13枚目)
 	CheckMapCollision(collisionMapInfo);
@@ -679,6 +695,7 @@ void Player::Update()
 
 	UpdateTransform(worldTransform_);
 	UpdateBlinkEffects();
+	UpdateCombatFeedback();
 }
 
 void Player::Draw() 
@@ -755,7 +772,14 @@ bool Player::TryHitBoss(Boss* boss)
 	if (GetBeamWallDistance(gripPosition_, attackDirection_, needed, 0.05f) + 0.001f < needed)
 	{ return false; }
 	attackHit_ = true;
-	boss->OnDamage(1);
+	const Vector3 hitPosition = boss->GetWorldPosition();
+    boss->OnDamage(currentAttackEmpowered_ ? 2 : 1, currentAttackEmpowered_);
+    if (currentAttackEmpowered_)
+    {
+        impactPosition_ = hitPosition;
+        impactTimer_ = 0.22f;
+        UpdateCombatFeedback();
+    }
 	return true;
 }
 
@@ -772,8 +796,15 @@ void Player::OnCollision(Boss* boss)
 
 void Player::OnBulletCollision()
 {
-	// ダッシュ中・被弾後の無敵時間中はダメージを受けない
-	if (isDashing_ || blinkRecoveryTimer_ > 0.0f || invincibleTimer_ > 0.0f || isDead_)
+	// ブリンクや被弾無敵による回避では強化を獲得しない。
+    if (isDead_) { return; }
+    if (blinkInvincibleTimer_ > 0.0f || blinkRecoveryTimer_ > 0.0f) { return; }
+    if (isDashing_)
+    {
+        if (invincibleTimer_ <= 0.0f) { TryJustDodge(); }
+        return;
+    }
+    if (invincibleTimer_ > 0.0f)
 	{
 		return;
 	}
@@ -825,12 +856,16 @@ float Player::GetSafeHorizontalMove(float distance, float halfWidth, float halfH
 
 void Player::StartBlinkAttack()
 {
+    blinkInvincibleTimer_ = kBlinkInvincibleTime;
+    currentAttackEmpowered_ = hasEmpoweredAttack_;
+    hasEmpoweredAttack_ = false;
+
 	const Vector3 start = worldTransform_.translation_;
 	attackDirection_ = lrDirection_ == LRDirection::kRight ? 1.0f : -1.0f;
 	worldTransform_.rotation_.y = attackDirection_ > 0.0f ?
 	    std::numbers::pi_v<float> / 2.0f : std::numbers::pi_v<float> * 1.5f;
 	turnTimer_ = 0.0f;
-	const float move = GetSafeHorizontalMove(attackDirection_ * kBlinkDistance, kWidth / 2.0f, kHeight / 2.0f);
+	const float move = LimitMoveAgainstBoss(GetSafeHorizontalMove(attackDirection_ * kBlinkDistance, kWidth / 2.0f, kHeight / 2.0f));
 	worldTransform_.translation_.x += move;
 	// 残像は固有のWorldTransformを持ち、移動経路に固定する。
 	for (int i = 0; i < kTrailCount; ++i)
@@ -910,6 +945,9 @@ float Player::GetBeamWallDistance(const Vector3& origin, float direction, float 
 
 void Player::UpdateSwordAndBeam()
 {
+    swordColor_.SetColor(currentAttackEmpowered_ ?
+        Vector4{1.0f, 0.85f, 0.25f, 1.0f} : Vector4{0.85f, 0.95f, 1.0f, 1.0f});
+    const float effectWidth = currentAttackEmpowered_ ? 1.5f : 1.0f;
 	if (attackEffectTimer_ <= 0.0f) { return; }
 	// 剣を持つ仮の位置。腕のボーンではなく自機座標を基準にする。
 	// 振り抜くまでは自機に追従し、ビーム発射後はその位置に固定。
@@ -955,8 +993,10 @@ void Player::UpdateSwordAndBeam()
 		const float radius = kSwordLength * 0.9f;
 		Vector3 a = {gripPosition_.x + std::cos(a0) * radius, gripPosition_.y + std::sin(a0) * radius, gripPosition_.z};
 		Vector3 b = {gripPosition_.x + std::cos(a1) * radius, gripPosition_.y + std::sin(a1) * radius, gripPosition_.z};
-		SetEffectSegment(slashArc_[i], a, b, (0.02f + 0.18f * t1) * fade, 0.025f);
-		arcColors_[i].SetColor({0.08f + 0.6f * t1, 0.65f + 0.35f * t1, 1.0f, fade * t1});
+		SetEffectSegment(slashArc_[i], a, b, (0.02f + 0.18f * t1) * fade * effectWidth, 0.025f);
+		arcColors_[i].SetColor(currentAttackEmpowered_ ?
+            Vector4{1.0f, 0.55f + 0.4f * t1, 0.15f, fade * t1} :
+            Vector4{0.08f + 0.6f * t1, 0.65f + 0.35f * t1, 1.0f, fade * t1});
 	}
 
 	// >=で境界を判定する。秒数の完全一致には依存しない。
@@ -975,9 +1015,10 @@ void Player::UpdateSwordAndBeam()
 		const float life = 1.0f - (std::clamp)((age - kBeamGrowTime) /
 		    (kSlashDuration - kBeamStartTime - kBeamGrowTime), 0.0f, 1.0f);
 		const Vector3 end = {beamStart_.x + attackDirection_ * beamLength_, beamStart_.y, beamStart_.z};
-		SetEffectSegment(beamOuter_, beamStart_, end, kBeamHalfWidth * life, 0.025f);
+		SetEffectSegment(beamOuter_, beamStart_, end, kBeamHalfWidth * life * effectWidth, 0.025f);
 		SetEffectSegment(beamCore_, beamStart_, end, kBeamHalfWidth * 0.24f * life, 0.025f);
-		beamOuterColor_.SetColor({0.0f, 0.5f, 1.0f, 0.7f * life});
+		beamOuterColor_.SetColor(currentAttackEmpowered_ ?
+            Vector4{1.0f, 0.55f, 0.05f, 0.85f * life} : Vector4{0.0f, 0.5f, 1.0f, 0.7f * life});
 		beamCoreColor_.SetColor({0.8f, 1.0f, 1.0f, life});
 		slashFlash_.translation_ = beamStart_;
 		slashFlash_.scale_ = {0.25f + age * 2.0f, 0.25f + age * 2.0f, 0.04f};
@@ -988,6 +1029,7 @@ void Player::UpdateSwordAndBeam()
 
 void Player::DrawAttackEffects()
 {
+	DrawCombatFeedback();
 	// 外側でModel::PostDraw()を済ませてから呼ぶ。ここで描画を開始・終了する。
 	if (isDead_ || (attackEffectTimer_ <= 0.0f && trailTimer_ <= 0.0f)) { return; }
 	// 青い外側は通常α合成。白背景でも色を残す。深度には書き込まない。
@@ -1041,4 +1083,89 @@ void Player::StopEntrance()
 	velocity_ = {};
 	turnTimer_ = 0.0f;
 	UpdateTransform(worldTransform_);
+}
+
+
+// ボスと高さ・奥行きが重なる場合だけ、手前に停止する。
+// 最初から重なっている場合は、離れる方向への移動は許可する。
+float Player::LimitMoveAgainstBoss(float move)
+{
+    if (!boss_ || boss_->IsDead() || move == 0.0f) { return move; }
+    const AABB b = boss_->GetAABB();
+    const Vector3 p = worldTransform_.translation_;
+    if (p.y + kHeight * 0.5f <= b.min.y || p.y - kHeight * 0.5f >= b.max.y ||
+        p.z + kWidth * 0.5f <= b.min.z || p.z - kWidth * 0.5f >= b.max.z) { return move; }
+    const float center = (b.min.x + b.max.x) * 0.5f;
+    if (move > 0.0f && p.x < center)
+    {
+        return (std::min)(move, (std::max)(0.0f, b.min.x - kWidth * 0.5f - 0.08f - p.x));
+    }
+    if (move < 0.0f && p.x > center)
+    {
+        return (std::max)(move, (std::min)(0.0f, b.max.x + kWidth * 0.5f + 0.08f - p.x));
+    }
+    return move;
+}
+
+void Player::TryJustDodge()
+{
+    if (justDodgeTimer_ <= 0.00001f || justDodgeSucceeded_) { return; }
+    justDodgeSucceeded_ = true;
+    hasEmpoweredAttack_ = true; // 蓄積せず、次の1回だけ
+    dodgeFlashTimer_ = 0.28f;
+    dodgeFlashPosition_ = worldTransform_.translation_;
+    UpdateCombatFeedback();
+}
+
+void Player::UpdateCombatFeedback()
+{
+    // 0:成功時の拡大リング、1:強化保持リング、2:命中リング
+    for (int ring = 0; ring < 3; ++ring)
+    {
+        Vector3 center = worldTransform_.translation_;
+        float radius = 0.62f + 0.05f * std::sin(feedbackTime_ * 8.0f);
+        float alpha = hasEmpoweredAttack_ ? 0.9f : 0.0f;
+        if (ring == 0)
+        {
+            center = dodgeFlashPosition_;
+            const float life = dodgeFlashTimer_ / 0.28f;
+            radius = 0.35f + (1.0f - life) * 1.3f;
+            alpha = life;
+        }
+        if (ring == 2)
+        {
+            center = impactPosition_;
+            const float life = impactTimer_ / 0.22f;
+            radius = 0.2f + (1.0f - life) * 1.1f;
+            alpha = life;
+        }
+        center.z -= 0.25f;
+        feedbackColors_[ring].SetColor(ring == 0 ?
+            Vector4{0.2f, 1.0f, 1.0f, alpha} : Vector4{1.0f, 0.7f, 0.1f, alpha});
+        for (int i = 0; i < kFeedbackSegments; ++i)
+        {
+            const float a = 2.0f * std::numbers::pi_v<float> * i / kFeedbackSegments;
+            const float b = 2.0f * std::numbers::pi_v<float> * (i + 1) / kFeedbackSegments;
+            SetEffectSegment(feedbackTransforms_[ring * kFeedbackSegments + i],
+                {center.x + std::cos(a) * radius, center.y + std::sin(a) * radius, center.z},
+                {center.x + std::cos(b) * radius, center.y + std::sin(b) * radius, center.z},
+                ring == 2 ? 0.075f : 0.035f, 0.025f);
+        }
+    }
+}
+
+void Player::DrawCombatFeedback()
+{
+    if (isDead_ || (!hasEmpoweredAttack_ && dodgeFlashTimer_ <= 0.0f && impactTimer_ <= 0.0f)) { return; }
+    Model::PreDraw(Model::CullingMode::kBack, Model::BlendMode::kNormal, Model::DepthTestMode::kReadOnly);
+    for (int ring = 0; ring < 3; ++ring)
+    {
+        if ((ring == 0 && dodgeFlashTimer_ <= 0.0f) ||
+            (ring == 1 && !hasEmpoweredAttack_) || (ring == 2 && impactTimer_ <= 0.0f)) { continue; }
+        for (int i = 0; i < kFeedbackSegments; ++i)
+        {
+            modelAttack->Draw(feedbackTransforms_[ring * kFeedbackSegments + i], *camera_, &feedbackColors_[ring]);
+        }
+    }
+    Model::PostDraw();
 }

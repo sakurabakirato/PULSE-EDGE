@@ -22,6 +22,7 @@ void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipF
 	renderTransform_.Initialize();
 	bodyColor_.Initialize();
 	hitReactionTimer_ = 0.0f;
+	empoweredHit_ = false;
 	hp_ = kMaxHp;
 	isDead = false;
 	bullets_.clear();
@@ -69,7 +70,7 @@ void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipF
 	for (auto& color : introShockColors_) { color.Initialize(); }
 	// 待機中も最初のフレームから正しい位置で描画する。
 	UpdateIntroMatrix();
-	ChangeAction(Action::kDashReady);
+	//ChangeAction(Action::kDashReady);
 
 }
 
@@ -274,7 +275,7 @@ void Boss::Attack()
 	// 4.狙い撃ち連射
 	if (attackType_ == 3)
 	{
-
+		attackType_ = 0;
 	}
 
 
@@ -384,18 +385,7 @@ void Boss::Update()
 	UpdateHitReaction();
 
 	// 現在の行動を更新
-	UpdateAction();
-
-	// 移動結果を当たり判定用の行列へ反映
-	worldTransform_.matWorld_ = MakeAffineMatrix(
-		worldTransform_.scale_,
-		worldTransform_.rotation_,
-		worldTransform_.translation_);
-
-	worldTransform_.TransferMatrix();
-
-	// 被弾時の揺れなどを表示用の位置へ反映
-	UpdateRenderTransform();
+	/*UpdateAction();*/
 
 	// 振る舞いの変更
 	if (behaviorRequest != Behavior::kUnknown)
@@ -522,6 +512,17 @@ void Boss::Update()
 		}
 		break;
 	}
+
+	// 移動結果を当たり判定用の行列へ反映
+	worldTransform_.matWorld_ = MakeAffineMatrix(
+		worldTransform_.scale_,
+		worldTransform_.rotation_,
+		worldTransform_.translation_);
+
+	worldTransform_.TransferMatrix();
+
+	// 被弾時の揺れなどを表示用の位置へ反映
+	UpdateRenderTransform();
 
 	// ボスの弾を更新
 	for (auto bulletIterator = bullets_.begin();
@@ -778,12 +779,21 @@ AABB Boss::GetAABB()
 	return aabb;
 }
 
-void Boss::OnDamage(int amount)
+void Boss::OnDamage(int amount, bool empowered)
 {
 	// 0以下のダメージや、撃破後の追加ヒットは受け付けない。
 	if (amount <= 0 || IsDead()) 
 	{
 		return; 
+	}
+
+	empoweredHit_ = empowered;
+	if (IsVulnerable())
+	{
+		// HPを超える分は不要なので、上限を付けて2倍にする
+		amount = static_cast<int>(
+			(std::min)(static_cast<long long>(amount) * 2,
+				static_cast<long long>(hp_)));
 	}
 
 	if (amount >= hp_)
@@ -816,6 +826,11 @@ void Boss::UpdateRenderTransform()
 	renderTransform_.scale_ = worldTransform_.scale_;
 	bodyColor_.SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 
+	if (IsVulnerable() && hitReactionTimer_ <= 0.0f)
+	{
+		bodyColor_.SetColor({ 1.0f, 0.8f, 0.1f, 1.0f });
+	}
+
 	if (hitReactionTimer_ > 0.0f)
 	{
 		const float elapsed = kHitReactionDuration - hitReactionTimer_;
@@ -823,11 +838,11 @@ void Boss::UpdateRenderTransform()
 		// 約3往復しながら揺れを弱める。毎回元の位置から計算する。
 		renderTransform_.translation_.x += std::sin(
 			elapsed / kHitReactionDuration * 6.0f * std::numbers::pi_v<float>)
-			* kHitShakeAmplitude * strength;
+			* kHitShakeAmplitude * strength * (empoweredHit_ ? 2.0f : 1.0f);
 		const int flashIndex = static_cast<int>(elapsed / kHitFlashInterval);
 		if (flashIndex % 2 == 0)
 		{
-			bodyColor_.SetColor({1.0f, 0.25f, 0.25f, 1.0f});
+			bodyColor_.SetColor(empoweredHit_ ? Vector4{1.0f, 0.85f, 0.2f, 1.0f} : Vector4{1.0f, 0.25f, 0.25f, 1.0f});
 		}
 	}
 	renderTransform_.matWorld_ = MakeAffineMatrix(
@@ -975,4 +990,14 @@ void Boss::DrawIntroShockwaves()
 		{ bulletModel_->Draw(introShockTransforms_[wave * kShockSegments + i], *camera_, &introShockColors_[wave]); }
 	}
 	Model::PostDraw();
+}
+
+bool Boss::IsVulnerable() const
+{
+	return !IsDead() &&
+		!introPoseActive_ &&
+		behavior == Behavior::kWalk &&
+		attackDone_ &&
+		moveWaitTimer_ > 0.0f &&
+		moveWaitTimer_ <= 1.0f;
 }

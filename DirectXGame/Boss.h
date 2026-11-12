@@ -54,7 +54,7 @@ public:
 	//ボスのHPが0以下なら死ぬ
 	bool IsDead() const { return hp_ <= 0; }
 
-	void OnDamage(int amount);
+	void OnDamage(int amount, bool empowered = false);
 
 	bool IsCollisionDisabled() const { return isCollisionDisabled; }
 
@@ -76,6 +76,7 @@ private:
 	static constexpr float kHitShakeAmplitude = 0.08f;
 	static constexpr float kHitFlashInterval = 0.045f;
 	float hitReactionTimer_ = 0.0f;
+	bool empoweredHit_ = false;
 	WorldTransform renderTransform_;
 	ObjectColor bodyColor_;
 	void UpdateHitReaction();
@@ -218,6 +219,9 @@ private:
 	void UpdateDashReady();
 	void UpdateDash();
 	void UpdateRecovery();
+
+	//今隙があるのか
+	bool IsVulnerable() const;
 
 };
 
