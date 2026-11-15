@@ -925,19 +925,32 @@ void Player::SetEffectSegment(WorldTransform& transform, const Vector3& a, const
 
 float Player::GetBeamWallDistance(const Vector3& origin, float direction, float maximum, float halfHeight)
 {
-	if (!mapChipField_) { return 0.0f; }
+	if (!mapChipField_) 
+	{ 
+		return 0.0f; 
+	}
 	float length = maximum;
 	for (uint32_t y = 0; y < mapChipField_->GetNumBlockVirtical(); ++y)
 	{
 		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x)
 		{
-			if (mapChipField_->GetMapChipTypeByIndex(x, y) != MapChipType::kBlock) { continue; }
+			if (mapChipField_->GetMapChipTypeByIndex(x, y) != MapChipType::kBlock) 
+			{ 
+				continue; 
+			}
 			const auto rect = mapChipField_->GetRectByIndex(x, y);
-			if (origin.y + halfHeight <= rect.bottom || origin.y - halfHeight >= rect.top) { continue; }
+			if (origin.y + halfHeight <= rect.bottom || origin.y - halfHeight >= rect.top) 
+			{ 
+				continue; 
+			}
 			if (direction > 0.0f && rect.right > origin.x)
-			{ length = (std::min)(length, (std::max)(0.0f, rect.left - origin.x - kBlank)); }
+			{ 
+				length = (std::min)(length, (std::max)(0.0f, rect.left - origin.x - kBlank)); 
+			}
 			else if (direction < 0.0f && rect.left < origin.x)
-			{ length = (std::min)(length, (std::max)(0.0f, origin.x - rect.right - kBlank)); }
+			{ 
+				length = (std::min)(length, (std::max)(0.0f, origin.x - rect.right - kBlank)); 
+			}
 		}
 	}
 	return length;
@@ -948,7 +961,10 @@ void Player::UpdateSwordAndBeam()
     swordColor_.SetColor(currentAttackEmpowered_ ?
         Vector4{1.0f, 0.85f, 0.25f, 1.0f} : Vector4{0.85f, 0.95f, 1.0f, 1.0f});
     const float effectWidth = currentAttackEmpowered_ ? 1.5f : 1.0f;
-	if (attackEffectTimer_ <= 0.0f) { return; }
+	if (attackEffectTimer_ <= 0.0f) 
+	{ 
+		return; 
+	}
 	// 剣を持つ仮の位置。腕のボーンではなく自機座標を基準にする。
 	// 振り抜くまでは自機に追従し、ビーム発射後はその位置に固定。
 	if (!beamSpawned_)
@@ -1031,17 +1047,32 @@ void Player::DrawAttackEffects()
 {
 	DrawCombatFeedback();
 	// 外側でModel::PostDraw()を済ませてから呼ぶ。ここで描画を開始・終了する。
-	if (isDead_ || (attackEffectTimer_ <= 0.0f && trailTimer_ <= 0.0f)) { return; }
+	if (isDead_ || (attackEffectTimer_ <= 0.0f && trailTimer_ <= 0.0f)) 
+	{ 
+		return; 
+	}
 	// 青い外側は通常α合成。白背景でも色を残す。深度には書き込まない。
 	Model::PreDraw(Model::CullingMode::kBack, Model::BlendMode::kNormal, Model::DepthTestMode::kReadOnly);
 	if (trailTimer_ > 0.0f)
-	{ for (auto& trail : blinkTrails_) { model_->Draw(trail, *camera_, &trailColor_); } }
+	{ 
+		for (auto& trail : blinkTrails_) 
+		{ 
+			model_->Draw(trail, *camera_, &trailColor_); 
+		} 
+	}
 	if (attackEffectTimer_ > 0.0f)
 	{
 		if (slashElapsed_ >= kWindupTime && slashElapsed_ < kBeamStartTime + 0.10f)
-		{ for (int i = 0; i < kArcSegments; ++i) { modelAttack->Draw(slashArc_[i], *camera_, &arcColors_[i]); } }
+		{ 
+			for (int i = 0; i < kArcSegments; ++i) 
+			{ 
+				modelAttack->Draw(slashArc_[i], *camera_, &arcColors_[i]); 
+			} 
+		}
 		if (beamSpawned_ && beamLength_ > 0.001f)
-		{ modelAttack->Draw(beamOuter_, *camera_, &beamOuterColor_); }
+		{ 
+			modelAttack->Draw(beamOuter_, *camera_, &beamOuterColor_); 
+		}
 	}
 	Model::PostDraw();
 	// 中心の白い線と発射光を加算で重ねる（ブルームではない）。
@@ -1050,7 +1081,9 @@ void Player::DrawAttackEffects()
 		Model::PreDraw(Model::CullingMode::kBack, Model::BlendMode::kAdd, Model::DepthTestMode::kReadOnly);
 		modelAttack->Draw(beamCore_, *camera_, &beamCoreColor_);
 		if (slashElapsed_ < kBeamStartTime + 0.07f)
-		{ modelAttack->Draw(slashFlash_, *camera_, &flashColor_); }
+		{ 
+			modelAttack->Draw(slashFlash_, *camera_, &flashColor_); 
+		}
 		Model::PostDraw();
 	}
 }
@@ -1066,12 +1099,17 @@ bool Player::UpdateEntrance(float targetX)
 		    std::numbers::pi_v<float> / 2.0f : std::numbers::pi_v<float> * 1.5f;
 	}
 	if (!onGround_)
-	{ velocity_.y = (std::max)(velocity_.y - kGravityAcceleration / 60.0f, -kLimitFallSpeed); }
+	{ 
+		velocity_.y = (std::max)(velocity_.y - kGravityAcceleration / 60.0f, -kLimitFallSpeed); 
+	}
 	CollisionMapInfo info{};
 	info.move = velocity_;
 	CheckMapCollision(info);
 	worldTransform_.translation_ += info.move;
-	if (info.ceiling) { velocity_.y = 0.0f; }
+	if (info.ceiling) 
+	{ 
+		velocity_.y = 0.0f; 
+	}
 	UpdateOnWall(info);
 	UpdateOnGround(info);
 	UpdateTransform(worldTransform_);
@@ -1090,11 +1128,17 @@ void Player::StopEntrance()
 // 最初から重なっている場合は、離れる方向への移動は許可する。
 float Player::LimitMoveAgainstBoss(float move)
 {
-    if (!boss_ || boss_->IsDead() || move == 0.0f) { return move; }
+    if (!boss_ || boss_->IsDead() || move == 0.0f) 
+	{ 
+		return move; 
+	}
     const AABB b = boss_->GetAABB();
     const Vector3 p = worldTransform_.translation_;
     if (p.y + kHeight * 0.5f <= b.min.y || p.y - kHeight * 0.5f >= b.max.y ||
-        p.z + kWidth * 0.5f <= b.min.z || p.z - kWidth * 0.5f >= b.max.z) { return move; }
+        p.z + kWidth * 0.5f <= b.min.z || p.z - kWidth * 0.5f >= b.max.z) 
+	{ 
+		return move; 
+	}
     const float center = (b.min.x + b.max.x) * 0.5f;
     if (move > 0.0f && p.x < center)
     {
@@ -1109,7 +1153,10 @@ float Player::LimitMoveAgainstBoss(float move)
 
 void Player::TryJustDodge()
 {
-    if (justDodgeTimer_ <= 0.00001f || justDodgeSucceeded_) { return; }
+    if (justDodgeTimer_ <= 0.00001f || justDodgeSucceeded_) 
+	{ 
+		return; 
+	}
     justDodgeSucceeded_ = true;
     hasEmpoweredAttack_ = true; // 蓄積せず、次の1回だけ
     dodgeFlashTimer_ = 0.28f;
@@ -1156,12 +1203,18 @@ void Player::UpdateCombatFeedback()
 
 void Player::DrawCombatFeedback()
 {
-    if (isDead_ || (!hasEmpoweredAttack_ && dodgeFlashTimer_ <= 0.0f && impactTimer_ <= 0.0f)) { return; }
+    if (isDead_ || (!hasEmpoweredAttack_ && dodgeFlashTimer_ <= 0.0f && impactTimer_ <= 0.0f)) 
+	{ 
+		return; 
+	}
     Model::PreDraw(Model::CullingMode::kBack, Model::BlendMode::kNormal, Model::DepthTestMode::kReadOnly);
     for (int ring = 0; ring < 3; ++ring)
     {
         if ((ring == 0 && dodgeFlashTimer_ <= 0.0f) ||
-            (ring == 1 && !hasEmpoweredAttack_) || (ring == 2 && impactTimer_ <= 0.0f)) { continue; }
+            (ring == 1 && !hasEmpoweredAttack_) || (ring == 2 && impactTimer_ <= 0.0f)) 
+		{ 
+			continue; 
+		}
         for (int i = 0; i < kFeedbackSegments; ++i)
         {
             modelAttack->Draw(feedbackTransforms_[ring * kFeedbackSegments + i], *camera_, &feedbackColors_[ring]);
