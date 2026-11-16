@@ -29,13 +29,11 @@ void GameClear::Initialize()
 	const float kPlayerClear = 2.0f;
 
 	worldTransformClear_.Initialize();
-
 	worldTransformClear_.scale_ = {kPlayerClear, kPlayerClear, kPlayerClear};
 
 	const float kSpaceScale = 3.0f;
 
 	worldTransformSpace_.Initialize();
-
 	worldTransformSpace_.scale_ = {kSpaceScale, kSpaceScale, kSpaceScale};
 
 	finished_ = false;

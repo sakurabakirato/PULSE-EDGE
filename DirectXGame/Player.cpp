@@ -603,8 +603,14 @@ void Player::Update()
 	    blinkCooldownTimer_ <= 0.0f && attackEffectTimer_ <= 0.0f && !isDashing_)
 	{
 		// 同時に方向キーを押した場合はその方向を優先。
-		if (Input::GetInstance()->PushKey(DIK_D)) { lrDirection_ = LRDirection::kRight; }
-		else if (Input::GetInstance()->PushKey(DIK_A)) { lrDirection_ = LRDirection::kLeft; }
+		if (Input::GetInstance()->PushKey(DIK_D)) 
+		{ 
+			lrDirection_ = LRDirection::kRight; 
+		}
+		else if (Input::GetInstance()->PushKey(DIK_A)) 
+		{ 
+			lrDirection_ = LRDirection::kLeft; 
+		}
 		StartBlinkAttack();
 	}
 	if (blinkRecoveryTimer_ <= 0.0f)
@@ -619,9 +625,14 @@ void Player::Update()
 		{
 			// 攻撃中もSPACEを離したときの小ジャンプ制御を維持。
 			if (!Input::GetInstance()->PushKey(DIK_SPACE) && velocity_.y > kJumpReleaseSpeed)
-			{ velocity_.y = kJumpReleaseSpeed; }
+			{ 
+				velocity_.y = kJumpReleaseSpeed; 
+			}
 			float gravity = kGravityAcceleration / 60.0f;
-			if (velocity_.y <= 0.0f) { gravity *= kFallGravityMultiplier; }
+			if (velocity_.y <= 0.0f) 
+			{ 
+				gravity *= kFallGravityMultiplier; 
+			}
 			velocity_.y = (std::max)(velocity_.y - gravity, -kLimitFallSpeed);
 		}
 	}
@@ -659,7 +670,8 @@ void Player::Update()
 		dashTimer_ -= 1.0f / 60.0f;
 
 		// ダッシュ中は横長にして速度感を出す
-		worldTransform_.scale_ = {
+		worldTransform_.scale_ = 
+		{
 			1.35f,
 			0.75f,
 			1.0f
@@ -673,7 +685,8 @@ void Player::Update()
 	}
 	else
 	{
-		worldTransform_.scale_ = {
+		worldTransform_.scale_ = 
+		{
 			1.0f,
 			1.0f,
 			1.0f
@@ -700,7 +713,10 @@ void Player::Update()
 
 void Player::Draw() 
 {
-	if (isDead_) { return; }
+	if (isDead_) 
+	{ 
+		return; 
+	}
 	// 剣の本体は通常描画。光・残像はDrawAttackEffectsで描く。
 	if (attackEffectTimer_ > 0.0f && slashElapsed_ < kBeamStartTime + 0.05f)
 	{
@@ -760,17 +776,25 @@ bool Player::IsAttack()
 
 bool Player::TryHitBoss(Boss* boss)
 {
-	if (!boss || boss->IsDead() || !IsAttack()) { return false; }
+	if (!boss || boss->IsDead() || !IsAttack()) 
+	{ 
+		return false; 
+	}
 	const AABB attack = GetAttackAABB();
 	const AABB target = boss->GetAABB();
 	const bool hit = attack.min.x <= target.max.x && attack.max.x >= target.min.x &&
 	                 attack.min.y <= target.max.y && attack.max.y >= target.min.y &&
 	                 attack.min.z <= target.max.z && attack.max.z >= target.min.z;
-	if (!hit) { return false; }
+	if (!hit) 
+	{ 
+		return false; 
+	}
 	const float targetNear = attackDirection_ > 0.0f ? target.min.x : target.max.x;
 	const float needed = (std::max)(0.0f, (targetNear - gripPosition_.x) * attackDirection_);
 	if (GetBeamWallDistance(gripPosition_, attackDirection_, needed, 0.05f) + 0.001f < needed)
-	{ return false; }
+	{ 
+		return false; 
+	}
 	attackHit_ = true;
 	const Vector3 hitPosition = boss->GetWorldPosition();
     boss->OnDamage(currentAttackEmpowered_ ? 2 : 1, currentAttackEmpowered_);
@@ -797,8 +821,14 @@ void Player::OnCollision(Boss* boss)
 void Player::OnBulletCollision()
 {
 	// ブリンクや被弾無敵による回避では強化を獲得しない。
-    if (isDead_) { return; }
-    if (blinkInvincibleTimer_ > 0.0f || blinkRecoveryTimer_ > 0.0f) { return; }
+    if (isDead_) 
+	{ 
+		return; 
+	}
+    if (blinkInvincibleTimer_ > 0.0f || blinkRecoveryTimer_ > 0.0f) 
+	{ 
+		return; 
+	}
     if (isDashing_)
     {
         if (invincibleTimer_ <= 0.0f) { TryJustDodge(); }
@@ -828,7 +858,10 @@ void Player::UpdateTransform(WorldTransform& transform)
 
 float Player::GetSafeHorizontalMove(float distance, float halfWidth, float halfHeight)
 {
-	if (!mapChipField_) { return 0.0f; }
+	if (!mapChipField_) 
+	{ 
+		return 0.0f; 
+	}
 	const Vector3 p = worldTransform_.translation_;
 	float allowed = distance;
 	// 端点だけでなく経路全体を見るので、薄い壁も飛び越えない。
@@ -836,9 +869,15 @@ float Player::GetSafeHorizontalMove(float distance, float halfWidth, float halfH
 	{
 		for (uint32_t x = 0; x < mapChipField_->GetNumBlockHorizontal(); ++x)
 		{
-			if (mapChipField_->GetMapChipTypeByIndex(x, y) != MapChipType::kBlock) { continue; }
+			if (mapChipField_->GetMapChipTypeByIndex(x, y) != MapChipType::kBlock) 
+			{ 
+				continue; 
+			}
 			const auto rect = mapChipField_->GetRectByIndex(x, y);
-			if (p.y + halfHeight <= rect.bottom || p.y - halfHeight >= rect.top) { continue; }
+			if (p.y + halfHeight <= rect.bottom || p.y - halfHeight >= rect.top) 
+			{ 
+				continue; 
+			}
 			if (distance > 0.0f && rect.right > p.x - halfWidth)
 			{
 				const float gap = rect.left - (p.x + halfWidth) - kBlank;

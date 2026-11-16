@@ -3,6 +3,7 @@
 #endif
 #include "GameScene.h"
 #include <cmath>
+#include <algorithm>
 
 using namespace KamataEngine;
 
@@ -46,6 +47,7 @@ GameScene::~GameScene()
 	delete modelSkydome_;
 	delete modelGameOver_;
 	delete gameOverOverlay_;
+	delete modelVictory_;
 }
 
 void GameScene::Initialize() 
@@ -113,6 +115,7 @@ void GameScene::Initialize()
 
 	InitializaHpBars();
 	InitializeGameOverUI();
+	InitializeVictory();
 
 	//-------------デスパーティクル-----------//
 	//モデル読み込み
@@ -135,6 +138,29 @@ void GameScene::Initialize()
 	introEntryTime_ = 0.0f;
 	introStuckTime_ = 0.0f;
 	CController_->FollowEntrance();
+}
+
+void GameScene::InitializeVictory()
+{
+	// VICTORYモデルを用意したら、ここを変更する
+	modelVictory_ = Model::CreateFromOBJ("GameClear", true);
+
+	victoryCamera_.Initialize();
+	victoryCamera_.TransferMatrix();
+
+	worldTransformVictory_.Initialize();
+	worldTransformVictory_.scale_ = { 2.0f, 2.0f, 2.0f };
+	worldTransformVictory_.translation_ = { 0.0f, 10.0f, 0.0f };
+
+	worldTransformVictory_.matWorld_ = MakeAffineMatrix(
+		worldTransformVictory_.scale_,
+		worldTransformVictory_.rotation_,
+		worldTransformVictory_.translation_);
+
+	worldTransformVictory_.TransferMatrix();
+
+	clearTimer_ = 0.0f;
+	clearSpaceReady_ = false;
 }
 
 void GameScene::GenerateBlocks() 
@@ -178,6 +204,11 @@ void GameScene::Update()
 	case Phase::kPlay:
 		UpdatePlay();
 		UpdateHpBars();
+		break;
+	case Phase::kBossDefeat:
+	case Phase::kVictory:
+	case Phase::kClearFadeOut:
+		UpdateClear();
 		break;
 	case Phase::kDeath:
 		UpdateDeath();
@@ -266,8 +297,21 @@ void GameScene::Draw()
 			Model::BlendMode::kNormal,
 			Model::DepthTestMode::kOff);
 
-		modelGameOver_->Draw(
-			worldTransformGameOver_, gameOverCamera_);
+		modelGameOver_->Draw(worldTransformGameOver_, gameOverCamera_);
+
+		Model::PostDraw();
+	}
+
+	if ((phase_ == Phase::kVictory ||
+		phase_ == Phase::kClearFadeOut) &&
+		clearTimer_ >= 0.9f)
+	{
+		Model::PreDraw(
+			Model::CullingMode::kBack,
+			Model::BlendMode::kNormal,
+			Model::DepthTestMode::kOff);
+
+		modelVictory_->Draw(worldTransformVictory_, victoryCamera_);
 
 		Model::PostDraw();
 	}
@@ -326,9 +370,7 @@ void GameScene::ChangePhase()
 		} 
 		else if (boss_->IsDead()) 
 		{
-			// ボス撃破時はシャッターを閉じる
-			phase_ = Phase::kFadeOut;
-			fade_->Start(Fade::Status::FadeOut, 0.25f);
+			BeginBossDefeat();
 		}
 
 		break;
@@ -607,6 +649,116 @@ void GameScene::UpdateCamera()
 	}
 }
 
+void GameScene::BeginBossDefeat()
+{
+	phase_ = Phase::kBossDefeat;
+	clearTimer_ = 0.0f;
+	clearSpaceReady_ = false;
+	returnToTitleRequested_ = false;
+
+	delete deathParticles_;
+	deathParticles_ = nullptr;
+
+	boss_->BeginDefeat();
+}
+
+void GameScene::UpdateClear()
+{
+	constexpr float dt = 1.0f / 60.0f;
+	constexpr float burstTime = 0.7f;
+	constexpr float textTime = 0.9f;
+
+	clearTimer_ += dt;
+
+	// 通常のplayer_->Update()、boss_->Update()、
+	// 当たり判定は呼ばず、演出だけを進める
+	if (phase_ == Phase::kBossDefeat)
+	{
+		boss_->UpdateDefeat(clearTimer_);
+
+		if (clearTimer_ >= burstTime)
+		{
+			// ボスが消えるタイミングで、一度だけ生成する。
+			deathParticles_ = new DeathParticles();
+
+			deathParticles_->Initialize(
+				deathParticle_model_,     // 粒として表示するモデル
+				&camera_,                 // 戦闘画面と同じカメラ
+				boss_->GetWorldPosition(),// ボスの位置から発生
+				true                      // ボス撃破用の設定を使う
+			);
+
+			phase_ = Phase::kVictory;
+		}
+	}
+
+	if (deathParticles_)
+	{
+		deathParticles_->Update();
+
+		if (deathParticles_->IsFinished())
+		{
+			delete deathParticles_;
+			deathParticles_ = nullptr;
+		}
+	}
+
+	if (clearTimer_ >= textTime)
+	{
+		float t = (clearTimer_ - textTime) / 0.35f;
+		t = (std::clamp)(t, 0.0f, 1.0f);
+
+		// 大きく登場して、少し行き過ぎてから収まる
+		const float u = t - 1.0f;
+		const float ease =
+			1.0f + 2.70158f * u * u * u + 1.70158f * u * u;
+
+		const float scale = 2.0f + 0.8f * (1.0f - ease);
+
+		worldTransformVictory_.scale_ = { scale, scale, scale };
+		worldTransformVictory_.translation_ = {
+			0.0f,
+			10.0f + 1.5f * (1.0f - ease),
+			0.0f
+		};
+
+		worldTransformVictory_.matWorld_ = MakeAffineMatrix(
+			worldTransformVictory_.scale_,
+			worldTransformVictory_.rotation_,
+			worldTransformVictory_.translation_);
+
+		worldTransformVictory_.TransferMatrix();
+	}
+
+	if (phase_ == Phase::kClearFadeOut)
+	{
+		fade_->Update();
+
+		if (fade_->IsFinished())
+		{
+			returnToTitleRequested_ = true;
+		}
+
+		return;
+	}
+
+	// 演出終了後、一度SPACEを離してから押す
+	if (phase_ == Phase::kVictory && clearTimer_ >= 2.0f)
+	{
+		if (!Input::GetInstance()->PushKey(DIK_SPACE))
+		{
+			clearSpaceReady_ = true;
+		}
+
+		if (clearSpaceReady_ &&
+			Input::GetInstance()->TriggerKey(DIK_SPACE))
+		{
+			phase_ = Phase::kClearFadeOut;
+			fade_->Start(Fade::Status::FadeOut, 0.25f);
+		}
+	}
+}
+
 void GameScene::BeginGameOver()
 {
 	returnToTitleRequested_ = false;
@@ -636,7 +788,12 @@ void GameScene::DrawPlay3D()
 		}
 	}
 	// 自キャラ描画
-	if (phase_ == Phase::kPlay || phase_ == Phase::kFadeIn || phase_ == Phase::kIntro)
+	if (phase_ == Phase::kPlay ||
+		phase_ == Phase::kFadeIn ||
+		phase_ == Phase::kIntro ||
+		phase_ == Phase::kBossDefeat ||
+		phase_ == Phase::kVictory ||
+		phase_ == Phase::kClearFadeOut)
 	{
 		player_->Draw();
 	}
@@ -652,6 +809,14 @@ void GameScene::DrawPlay3D()
 
 void GameScene::DrawUI()
 {
+	//クリア演出中はHPバーを隠すため、先頭に追加
+	if (phase_ == Phase::kBossDefeat ||
+		phase_ == Phase::kVictory ||
+		phase_ == Phase::kClearFadeOut)
+	{
+		return;
+	}
+
 	if (phase_ != Phase::kIntro && phase_ != Phase::kFadeIn)
 	{
 		bossHpBarBack_->Draw();

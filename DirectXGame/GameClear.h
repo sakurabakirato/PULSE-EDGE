@@ -10,6 +10,7 @@ using namespace KamataEngine;
 class GameClear 
 {
 public:
+
 	~GameClear();
 
 	void Initialize();
@@ -19,7 +20,10 @@ public:
 	void Draw();
 
 	// 02_12 26枚目
-	bool IsFinished() const { return finished_; }
+	bool IsFinished() const 
+	{ 
+		return finished_; 
+	}
 	
 
 private:

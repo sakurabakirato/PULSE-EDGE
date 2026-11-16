@@ -75,12 +75,16 @@ private:
 	void CheckAllCollisions();
 	void ChangePhase();
 
+	//現在のシーン管理
 	enum class Phase 
 	{
 		kFadeIn,
-		kIntro, // 開始演出
-		kPlay, // ゲームプレイ
-		kDeath, // デス演出
+		kIntro,      // 開始演出
+		kPlay,       // ゲームプレイ
+		kBossDefeat, // ボスの撃破演出
+		kVictory,    // 勝利文字とパーティクル・入力待ち
+		kClearFadeOut,
+		kDeath,      // デス演出
 		kGameOver,
 		kFadeOut,
 	};
@@ -140,5 +144,18 @@ private:
 	Model* modelGameOver_ = nullptr;
 	WorldTransform worldTransformGameOver_;
 	Camera gameOverCamera_;
+
+
+
+	void InitializeVictory();
+	void BeginBossDefeat();
+	void UpdateClear();
+
+	Model* modelVictory_ = nullptr;
+	WorldTransform worldTransformVictory_;
+	Camera victoryCamera_;
+
+	float clearTimer_ = 0.0f;
+	bool clearSpaceReady_ = false;
 
 };

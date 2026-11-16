@@ -2,64 +2,64 @@
 
 #include "KamataEngine.h"
 #include "Math.h"
-#include "UpDate.h"
-#include <algorithm>
+
 #include <array>
-#include <numbers>
 
 using namespace KamataEngine;
 
-/// <summary>
-/// デス演出用パーティクル
-/// </summary>
-// 02_11_7枚目 デス演出用パーティクル
-class DeathParticles 
+class DeathParticles
 {
 public:
-	// 02_11_8枚目 Initialize,Update,Draw関数追加
-	void Initialize(Model* model, Camera* camera, const Vector3& position);
-	void Update();
-	void Draw();
+    // forBossClear:
+    // false = 通常の死亡演出
+    // true  = ボス撃破用の、勢いよくはじける演出
+    //
+    // 「= false」があるので、既存の3引数の呼び出しも使える。
+    void Initialize(
+        Model* model,
+        Camera* camera,
+        const Vector3& position,
+        bool forBossClear = false);
 
-	// 02_12 34枚目で実装
-	bool IsFinished() { return isFinished_; }
+    void Update();
+    void Draw();
+
+    bool IsFinished() const
+    {
+        return isFinished_;
+    }
 
 private:
-	// 02_11_10枚目パーティクルの個数
-	static inline const uint32_t kNumParticles = 8;
+    // 最大32個分を用意しておく。
+    // 実際に何個使うかは、particleCount_で決める。
+    static constexpr uint32_t kMaxParticles = 32;
 
-	// 02_11_10枚目パーティクル座標配列
-	std::array<WorldTransform, kNumParticles> worldTransforms_;
+    // 各粒の位置・回転・大きさ。
+    std::array<WorldTransform, kMaxParticles> worldTransforms_;
 
-	// 02_11_13枚目 モデル
-	Model* model_ = nullptr;
+    // 各粒の速度。
+    // Initializeで方向と速さを決め、Updateで減速させる。
+    std::array<Vector3, kMaxParticles> velocities_{};
 
-	// 02_11_13枚目 カメラ
-	Camera* camera_ = nullptr;
+    // モデルとカメラはGameSceneから借りる。
+    // このクラスではnewしていないため、deleteもしない。
+    Model* model_ = nullptr;
+    Camera* camera_ = nullptr;
 
-	// 02_11_22枚目 存続時間（消滅までの時間）<秒>
-	static inline const float kDuration_ = 2.0f;
+    // 今回の演出で使う粒の数。
+    uint32_t particleCount_ = 8;
 
-	// 02_11_22枚目 移動の速さ
-	static inline const float kSpeed_ = 0.05f;
+    bool forBossClear_ = false;
+    bool isFinished_ = false;
 
-	// 02_11_22枚目 分割した1個分の角度(#include <numbers>)
-	static inline const float kAngleUnit_ = 2.0f * std::numbers::pi_v<float> / kNumParticles;
+    // 秒単位で管理する。
+    float elapsed_ = 0.0f;
+    float duration_ = 2.0f;
 
-	// 02_11_25枚目 終了フラグ
-	bool isFinished_ = false;
+    // 今回は全粒で同じ色と透明度を使う。
+    ObjectColor objectColor_;
+    Vector4 color_ = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-	// 02_11_25枚目 経過時間カウント
-	float counter_ = 0.0f;
-
-	// 02_11_30枚目 色変更オブジェクト
-	ObjectColor objectColor_;
-
-	// 02_11_30枚目 色の数値
-	Vector4 color_;
-
-	UpDate* upDate_ = nullptr;
-
-	// ワールド変換データ
-	WorldTransform worldTransform_;
+    // 座標・回転・大きさを、描画に使う行列へ反映する。
+    void UpdateMatrices();
 };

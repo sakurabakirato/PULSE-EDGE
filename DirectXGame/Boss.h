@@ -48,27 +48,48 @@ public:
 		kDefeated, // やられ状態
 	};
 
-	bool ShouldDropBlock() const { return canBlockAttack_; }
-	void ConsumeBlockAttack() { canBlockAttack_ = false; }
+	bool ShouldDropBlock() const 
+	{ 
+		return canBlockAttack_; 
+	}
+	void ConsumeBlockAttack() 
+	{ 
+		canBlockAttack_ = false; 
+	}
 
 	//ボスのHPが0以下なら死ぬ
-	bool IsDead() const { return hp_ <= 0; }
+	bool IsDead() const 
+	{ 
+		return hp_ <= 0; 
+	}
 
 	void OnDamage(int amount, bool empowered = false);
 
-	bool IsCollisionDisabled() const { return isCollisionDisabled; }
+	bool IsCollisionDisabled() const 
+	{ 
+		return isCollisionDisabled; 
+	}
 
 	bool IsAttack();
 
 	// ボスの最大HP
-	static inline const int kMaxHp = 30;
+	static inline const int kMaxHp = 5;
 
 	// 現在HPを取得
-	int GetHp() const { return hp_; }
+	int GetHp() const 
+	{ 
+		return hp_; 
+	}
 
 	// 最大HPを取得
-	int GetMaxHp() const { return kMaxHp; }
+	int GetMaxHp() const 
+	{ 
+		return kMaxHp; 
+	}
 
+	// 死亡判定とは別に、演出中だけボスの表示を残す
+	void BeginDefeat();
+	void UpdateDefeat(float elapsed);
 
 private:
 	// 被弾演出。移動・当たり判定用のworldTransform_には揺れを加えない。
@@ -222,6 +243,8 @@ private:
 
 	//今隙があるのか
 	bool IsVulnerable() const;
+
+	bool defeatVisible_ = false;
 
 };
 

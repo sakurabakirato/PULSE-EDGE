@@ -72,6 +72,8 @@ void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipF
 	UpdateIntroMatrix();
 	//ChangeAction(Action::kDashReady);
 
+	defeatVisible_ = false;
+
 }
 
 void Boss::Attack()
@@ -885,8 +887,9 @@ void Boss::OnCollision(Player* player)
 
 void Boss::Draw()
 {
-	// 02_09 スライド9枚目  モデル描画
-	if (!isDead)
+	// モデル描画
+	// HPが0になって攻撃を停止したあとも、撃破演出中は表示できるようにする
+	if (!isDead || defeatVisible_)
 	{
 		model_->Draw(renderTransform_, *camera_, &bodyColor_);
 	} 
@@ -1000,4 +1003,64 @@ bool Boss::IsVulnerable() const
 		attackDone_ &&
 		moveWaitTimer_ > 0.0f &&
 		moveWaitTimer_ <= 1.0f;
+}
+
+
+
+
+void Boss::BeginDefeat()
+{
+	defeatVisible_ = true;
+	bullets_.clear();
+	hitReactionTimer_ = 0.0f;
+	UpdateDefeat(0.0f);
+}
+void Boss::UpdateDefeat(float elapsed)
+{
+	constexpr float holdTime = 0.1f;
+	constexpr float endTime = 0.7f;
+
+	if (elapsed >= endTime)
+	{
+		defeatVisible_ = false;
+		return;
+	}
+
+	float t = (elapsed - holdTime) / (endTime - holdTime);
+	t = (std::clamp)(t, 0.0f, 1.0f);
+
+	// 元の姿勢を基準に計算する
+	renderTransform_.translation_ = worldTransform_.translation_;
+	renderTransform_.rotation_ = worldTransform_.rotation_;
+
+	// 最初はゆっくり、最後に急激に縮める
+	const float scale = 1.0f - 0.95f * t * t;
+
+	renderTransform_.scale_ = {
+		worldTransform_.scale_.x * scale,
+		worldTransform_.scale_.y * scale,
+		worldTransform_.scale_.z * scale
+	};
+
+	renderTransform_.translation_.x +=
+		std::sin(t * 60.0f) * 0.18f * t;
+
+	renderTransform_.rotation_.z += t * 0.45f;
+
+	// 静止後、白と金色に点滅
+	const bool flash =
+		elapsed > holdTime &&
+		static_cast<int>((elapsed - holdTime) / 0.05f) % 2 == 0;
+
+	bodyColor_.SetColor(
+		flash
+		? Vector4{ 1.0f, 0.75f, 0.2f, 1.0f }
+	: Vector4{ 1.0f, 1.0f, 1.0f, 1.0f });
+
+	renderTransform_.matWorld_ = MakeAffineMatrix(
+		renderTransform_.scale_,
+		renderTransform_.rotation_,
+		renderTransform_.translation_);
+
+	renderTransform_.TransferMatrix();
 }
