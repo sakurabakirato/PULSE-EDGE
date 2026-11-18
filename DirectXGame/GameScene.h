@@ -103,7 +103,7 @@ private:
 	Sprite* playerHpBar_ = nullptr;
 	Sprite* playerHpBarBack_ = nullptr;
 
-	///////////////////////////3Dモデル////////////////////////
+	//------------------------3Dモデル------------------------//
 	Model* model_ = nullptr;
 	Model* blockModel_ = nullptr;
 	Model* modelSkydome_ = nullptr;
@@ -134,7 +134,8 @@ private:
 
 	bool finished_ = false;
 
-	//BGM
+	//---------------------------- BGM--------------------------------//
+
 	uint32_t BGMHandle = 0;
 	uint32_t voiceHandle = 0;
 
@@ -145,6 +146,20 @@ private:
 	WorldTransform worldTransformGameOver_;
 	Camera gameOverCamera_;
 
+	// 読み込んだ音声データを識別する番号。
+    // 同じデータを使って、必要なときに再生できる。
+	uint32_t bossDefeatSeHandle_ = 0;
+	uint32_t gameClearSeHandle_ = 0;
+
+	// 再生中の音を識別する番号。
+	// シーンを離れるとき、StopWaveに渡して停止する。
+	uint32_t bossDefeatVoiceHandle_ = 0;
+	uint32_t gameClearVoiceHandle_ = 0;
+
+	// 文字の表示SEを、毎フレーム鳴らさないためのフラグ。
+	bool gameClearSePlayed_ = false;
+
+	//----------------------------------------------------------------//
 
 
 	void InitializeVictory();

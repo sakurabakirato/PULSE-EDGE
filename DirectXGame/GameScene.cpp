@@ -15,6 +15,18 @@ GameScene::~GameScene()
 		Audio::GetInstance()->StopWave(voiceHandle);
 		voiceHandle = 0;
 	}
+	// SEの途中でタイトルへ戻った場合も、音が残らないようにする。
+	if (bossDefeatVoiceHandle_ != 0)
+	{
+		Audio::GetInstance()->StopWave(bossDefeatVoiceHandle_);
+		bossDefeatVoiceHandle_ = 0;
+	}
+
+	if (gameClearVoiceHandle_ != 0)
+	{
+		Audio::GetInstance()->StopWave(gameClearVoiceHandle_);
+		gameClearVoiceHandle_ = 0;
+	}
 
 	delete bossHpBar_;
 	delete bossHpBarBack_;
@@ -57,12 +69,25 @@ void GameScene::Initialize()
 
 	voiceHandle = 0; // BGMはカメラが戻って戦闘開始するときに再生
 
+	// 音声データは、シーン開始時に一度だけ読み込む。
+	// パスの書き方は既存のBGMに合わせる。
+	bossDefeatSeHandle_ = Audio::GetInstance()->LoadWave("sound/boss_defeat.mp3");
+
+	gameClearSeHandle_ = Audio::GetInstance()->LoadWave("sound/game_clear.mp3");
+
+	// まだSEを再生していない状態にする。
+	bossDefeatVoiceHandle_ = 0;
+	gameClearVoiceHandle_ = 0;
+	gameClearSePlayed_ = false;
+
+
 	blockModel_ = Model::CreateFromOBJ("block");
 
 	debugCamera_ = new DebugCamera(1280, 720);
 
 	mapChipField_ = new MapChipField;
 	mapChipField_->LoadMapChipCsv("Resources/blocks_csv/blocks.csv");
+
 
 	//-----------------自キャラ------------------//
 	// 自キャラの生成
@@ -131,6 +156,7 @@ void GameScene::Initialize()
 	fade_->Start(Fade::Status::FadeIn, 0.35f);
 
 	finished_ = false;
+
 	returnToTitleRequested_ = false;
 	gameOverSpaceReady_ = false;
 	introPhase_ = IntroPhase::kPlayerEntry;
@@ -138,6 +164,7 @@ void GameScene::Initialize()
 	introEntryTime_ = 0.0f;
 	introStuckTime_ = 0.0f;
 	CController_->FollowEntrance();
+
 }
 
 void GameScene::InitializeVictory()
@@ -302,9 +329,7 @@ void GameScene::Draw()
 		Model::PostDraw();
 	}
 
-	if ((phase_ == Phase::kVictory ||
-		phase_ == Phase::kClearFadeOut) &&
-		clearTimer_ >= 0.9f)
+	if ((phase_ == Phase::kVictory || phase_ == Phase::kClearFadeOut) && clearTimer_ >= 1.5f)
 	{
 		Model::PreDraw(
 			Model::CullingMode::kBack,
@@ -317,6 +342,61 @@ void GameScene::Draw()
 	}
 
 	fade_->Draw();
+}
+
+void GameScene::DrawPlay3D()
+{
+
+	// 天球描画
+	skydome_->Draw();
+
+	// ブロックの描画
+	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_)
+	{
+		for (WorldTransform*& worldTransformBlock : worldTransformBlockLine)
+		{
+			if (!worldTransformBlock)
+				continue;
+			blockModel_->Draw(*worldTransformBlock, camera_);
+		}
+	}
+	// 自キャラ描画
+	if (phase_ == Phase::kPlay ||
+		phase_ == Phase::kFadeIn ||
+		phase_ == Phase::kIntro ||
+		phase_ == Phase::kBossDefeat ||
+		phase_ == Phase::kVictory ||
+		phase_ == Phase::kClearFadeOut)
+	{
+		player_->Draw();
+	}
+
+	boss_->Draw();
+
+	// デスパーティクルあれば描画
+	if (deathParticles_)
+	{
+		deathParticles_->Draw();
+	}
+}
+
+void GameScene::DrawUI()
+{
+	//クリア演出中はHPバーを隠すため、先頭に追加
+	if (phase_ == Phase::kBossDefeat ||
+		phase_ == Phase::kVictory ||
+		phase_ == Phase::kClearFadeOut)
+	{
+		return;
+	}
+
+	if (phase_ != Phase::kIntro && phase_ != Phase::kFadeIn)
+	{
+		bossHpBarBack_->Draw();
+		bossHpBar_->Draw();
+		playerHpBarBack_->Draw();
+		playerHpBar_->Draw();
+	}
 }
 
 //自キャラとボスの当たり判定
@@ -601,8 +681,7 @@ void GameScene::UpdateGameOver()
 	{
 		gameOverSpaceReady_ = true;
 	}
-	if (gameOverSpaceReady_ && gameOverAlpha_ >= targetAlpha &&
-		Input::GetInstance()->TriggerKey(DIK_SPACE))
+	if (gameOverSpaceReady_ && gameOverAlpha_ >= targetAlpha && Input::GetInstance()->TriggerKey(DIK_SPACE))
 	{
 		returnToTitleRequested_ = true;
 	}
@@ -660,13 +739,20 @@ void GameScene::BeginBossDefeat()
 	deathParticles_ = nullptr;
 
 	boss_->BeginDefeat();
+
+	// 次のクリア演出に備えて、文字のSEの再生状態をリセット。
+	gameClearSePlayed_ = false;
+
+	// HPが0になり、撃破演出へ入った瞬間に鳴らす。
+	// falseは「ループしない」、0.7fは音量。
+	bossDefeatVoiceHandle_ = Audio::GetInstance()->PlayWave(bossDefeatSeHandle_, false, 0.7f);
 }
 
 void GameScene::UpdateClear()
 {
 	constexpr float dt = 1.0f / 60.0f;
 	constexpr float burstTime = 0.7f;
-	constexpr float textTime = 0.9f;
+	constexpr float textTime = 1.5f;
 
 	clearTimer_ += dt;
 
@@ -705,6 +791,17 @@ void GameScene::UpdateClear()
 
 	if (clearTimer_ >= textTime)
 	{
+		// このifには、文字の表示開始後も毎フレーム入る。
+	    // そのため、まだ鳴らしていない場合だけ再生する。
+		if (!gameClearSePlayed_)
+		{
+			gameClearVoiceHandle_ = Audio::GetInstance()->PlayWave(gameClearSeHandle_, false, 0.2f);
+
+			// 再生したことを記録し、次のフレームからは鳴らさない。
+			gameClearSePlayed_ = true;
+		}
+
+
 		float t = (clearTimer_ - textTime) / 0.35f;
 		t = (std::clamp)(t, 0.0f, 1.0f);
 
@@ -716,7 +813,8 @@ void GameScene::UpdateClear()
 		const float scale = 2.0f + 0.8f * (1.0f - ease);
 
 		worldTransformVictory_.scale_ = { scale, scale, scale };
-		worldTransformVictory_.translation_ = {
+		worldTransformVictory_.translation_ = 
+		{
 			0.0f,
 			10.0f + 1.5f * (1.0f - ease),
 			0.0f
@@ -743,7 +841,7 @@ void GameScene::UpdateClear()
 	}
 
 	// 演出終了後、一度SPACEを離してから押す
-	if (phase_ == Phase::kVictory && clearTimer_ >= 2.0f)
+	if (phase_ == Phase::kVictory && clearTimer_ >= 3.0f)
 	{
 		if (!Input::GetInstance()->PushKey(DIK_SPACE))
 		{
@@ -771,57 +869,4 @@ void GameScene::BeginGameOver()
 
 }
 
-void GameScene::DrawPlay3D()
-{
 
-	// 天球描画
-	skydome_->Draw();
-
-	// ブロックの描画
-	for (std::vector<WorldTransform*>& worldTransformBlockLine : worldTransformBlocks_)
-	{
-		for (WorldTransform*& worldTransformBlock : worldTransformBlockLine)
-		{
-			if (!worldTransformBlock)
-				continue;
-			blockModel_->Draw(*worldTransformBlock, camera_);
-		}
-	}
-	// 自キャラ描画
-	if (phase_ == Phase::kPlay ||
-		phase_ == Phase::kFadeIn ||
-		phase_ == Phase::kIntro ||
-		phase_ == Phase::kBossDefeat ||
-		phase_ == Phase::kVictory ||
-		phase_ == Phase::kClearFadeOut)
-	{
-		player_->Draw();
-	}
-
-	boss_->Draw();
-
-	// デスパーティクルあれば描画
-	if (deathParticles_)
-	{
-		deathParticles_->Draw();
-	}
-}
-
-void GameScene::DrawUI()
-{
-	//クリア演出中はHPバーを隠すため、先頭に追加
-	if (phase_ == Phase::kBossDefeat ||
-		phase_ == Phase::kVictory ||
-		phase_ == Phase::kClearFadeOut)
-	{
-		return;
-	}
-
-	if (phase_ != Phase::kIntro && phase_ != Phase::kFadeIn)
-	{
-		bossHpBarBack_->Draw();
-		bossHpBar_->Draw();
-		playerHpBarBack_->Draw();
-		playerHpBar_->Draw();
-	}
-}
