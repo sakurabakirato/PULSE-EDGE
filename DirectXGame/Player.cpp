@@ -599,7 +599,8 @@ void Player::Update()
 	}
 
 	// 移動入力(02_07 スライド10枚目)
-	if (Input::GetInstance()->TriggerKey(DIK_J) &&
+	stagger_=(std::max)(0.f,stagger_-dt);
+    if (stagger_<=0.f && Input::GetInstance()->TriggerKey(DIK_J) &&
 	    blinkCooldownTimer_ <= 0.0f && attackEffectTimer_ <= 0.0f && !isDashing_)
 	{
 		// 同時に方向キーを押した場合はその方向を優先。
@@ -613,7 +614,7 @@ void Player::Update()
 		}
 		StartBlinkAttack();
 	}
-	if (blinkRecoveryTimer_ <= 0.0f)
+	if (stagger_<=0.f && blinkRecoveryTimer_ <= 0.0f)
 	{
 		InputMove();
 	}
@@ -647,7 +648,8 @@ void Player::Update()
     }
 	// 移動量に速度の値をコピー
 	//  マップ衝突チェック(02_07 スライド13枚目)
-	CheckMapCollision(collisionMapInfo);
+	if(stagger_>0.f) collisionMapInfo.move.x=recoil_*(std::max)(0.f,(stagger_-.22f)/.24f)*.09f;
+    CheckMapCollision(collisionMapInfo);
 
 	// 移動(02_07 スライド36枚目)
 	worldTransform_.translation_ += collisionMapInfo.move;
@@ -693,7 +695,8 @@ void Player::Update()
 		};
 	}
 
-	// 旋回制御
+	worldTransform_.rotation_.z=stagger_>0.f ? -recoil_*.65f*(std::min)(1.f,stagger_/.22f) : 0.f;
+    // 旋回制御
 	if (turnTimer_ > 0.0f) 
 	{
 		// タイマーを進める
@@ -801,6 +804,7 @@ bool Player::TryHitBoss(Boss* boss)
     if (currentAttackEmpowered_)
     {
         impactPosition_ = hitPosition;
+        if(impactFx_) impactFx_->Emit(DeathParticles::Effect::Impact,hitPosition,attackDirection_);
         impactTimer_ = 0.22f;
         UpdateCombatFeedback();
     }
@@ -840,6 +844,7 @@ void Player::OnBulletCollision()
 	}
 
 	hp_ -= 1;
+    if(hp_>0){ stagger_=.46f; recoil_=(boss_ && boss_->GetWorldPosition().x>worldTransform_.translation_.x)?-1.f:1.f; attackEffectTimer_=0.f; }
 	invincibleTimer_ = 1.0f;
 
 	if (hp_ <= 0)
@@ -1200,6 +1205,7 @@ void Player::TryJustDodge()
     hasEmpoweredAttack_ = true; // 蓄積せず、次の1回だけ
     dodgeFlashTimer_ = 0.28f;
     dodgeFlashPosition_ = worldTransform_.translation_;
+    if(dodgeFx_) dodgeFx_->Emit(DeathParticles::Effect::Dodge,dodgeFlashPosition_,lrDirection_==LRDirection::kRight?1.f:-1.f);
     UpdateCombatFeedback();
 }
 

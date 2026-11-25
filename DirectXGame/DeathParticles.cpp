@@ -1,4 +1,4 @@
-#include "DeathParticles.h"
+﻿#include "DeathParticles.h"
 
 #include <algorithm>
 #include <cmath>
@@ -11,6 +11,7 @@ void DeathParticles::Initialize(
     bool forBossClear)
 {
     // GameSceneが持っているモデルとカメラを使う。
+    combat_ = false;
     model_ = model;
     camera_ = camera;
 
@@ -113,6 +114,7 @@ void DeathParticles::Update()
         return;
     }
 
+    if(combat_){ PoseCombat(); return; }
     // 演出がどれくらい進んだかを、0～1で表す。
     //
     // 開始時       : 0
@@ -191,4 +193,43 @@ void DeathParticles::Draw()
             *camera_,
             &objectColor_);
     }
+}
+void DeathParticles::Prepare(Model* shard, Camera* camera){
+    model_=shard; camera_=camera; combat_=true; isFinished_=true;
+    objectColor_.Initialize();
+    for(auto& t:worldTransforms_) t.Initialize();
+}
+void DeathParticles::Emit(Effect effect, Vector3 origin, float direction){
+    effect_=effect; origin_=origin; direction_=direction; elapsed_=0.f;isFinished_=false;
+    particleCount_=effect==Effect::Dodge?12:effect==Effect::Impact?20:32;
+    duration_=effect==Effect::Gather?1.8f:effect==Effect::Impact?.46f:.34f;
+    PoseCombat();
+}
+void DeathParticles::PoseCombat(){
+    const float u=elapsed_/duration_, fade=1.f-u;
+    const bool purple=effect_==Effect::Gather || effect_==Effect::Release;
+    objectColor_.SetColor(purple?Vector4{.85f,.19f,1.f,fade}:Vector4{1.f,.72f,.14f,fade});
+    for(unsigned i=0;i<particleCount_;++i){
+        auto& t=worldTransforms_[i]; float a=i*2.399963f;
+        float v=float((i*7)%13)/12.f;
+        t.translation_=origin_; t.translation_.z-=.42f;
+        t.rotation_={0,0,0};
+        if(purple){
+            float r=effect_==Effect::Gather?(2.2f+v)*fade*fade:.2f+2.4f*(1.f-fade*fade);
+            a+=effect_==Effect::Gather?3.f*u:0.f;
+            t.translation_.x+=r*std::cos(a); t.translation_.y+=r*std::sin(a);
+            t.rotation_.z=a+1.57f;
+            t.scale_={.23f*fade,.07f*fade,.07f*fade};
+        }else{
+            float dir=effect_==Effect::Dodge?-direction_:direction_;
+            float spread=(v-.5f)*(effect_==Effect::Dodge?1.9f:2.6f);
+            float r=(1.f-fade*fade)*(1.2f+.32f*(i%6));
+            t.translation_.x+=dir*r*std::cos(spread);
+            t.translation_.y+=r*std::sin(spread)-(effect_==Effect::Impact?.85f*u*u:0.f);
+            t.rotation_.z=dir>0?spread:3.14159f-spread;
+            if(i%3==0){t.rotation_.y=5.f*u; t.rotation_.z+=u*3.f;}
+            t.scale_={(i%3==0?.18f:.34f)*fade,.065f*fade,.09f*fade};
+        }
+    }
+    UpdateMatrices();
 }

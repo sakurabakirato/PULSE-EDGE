@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "DeathParticles.h"
 #include "KamataEngine.h"
 #include "MapChipField.h"
 #include "Math.h"
@@ -12,7 +13,10 @@ class Player;
 
 class Boss
 {
+private:
+    DeathParticles *phaseFx_=nullptr;
 public:
+    void SetPhaseParticles(DeathParticles* a){ phaseFx_=a; }
 	/// <summary>
 	/// 初期化
 	/// </summary>
@@ -60,7 +64,7 @@ public:
 	//ボスのHPが0以下なら死ぬ
 	bool IsDead() const 
 	{ 
-		return hp_ <= 0; 
+		return isDead; 
 	}
 
 	void OnDamage(int amount, bool empowered = false);
@@ -73,7 +77,7 @@ public:
 	bool IsAttack();
 
 	// ボスの最大HP
-	static inline const int kMaxHp = 5;
+	static inline const int kMaxHp = 12;
 
 	// 現在HPを取得
 	int GetHp() const 
@@ -90,6 +94,19 @@ public:
 	// 死亡判定とは別に、演出中だけボスの表示を残す
 	void BeginDefeat();
 	void UpdateDefeat(float elapsed);
+
+	bool IsComboAttacking() const;
+	AABB GetComboAttackAABB() const;
+
+	bool CanResolveComboContact() const
+	{
+		return IsComboAttacking() && !comboContactResolved_;
+	}
+
+	void ResolveComboContact()
+	{
+		comboContactResolved_ = true;
+	}
 
 private:
 	// 被弾演出。移動・当たり判定用のworldTransform_には揺れを加えない。
@@ -208,13 +225,20 @@ private:
 	// ボスが現在行っている行動
 	enum class Action
 	{
-		kDashReady, // 突進の予備動作
-		kDash,      // 突進
-		kRecovery   // 攻撃後の硬直
+		kChoose,      // 次の行動を選ぶ
+		kMove,        // 選んだ地点へ移動
+		kShootReady,  // 弾幕の予備動作
+		kDashReady,   // 突進の予備動作
+		kDash,        // 突進
+		kRecovery,    // 後隙
+		kApproach,    // プレイヤーへ接近
+		kComboReady,  // 連続攻撃の構え
+		kComboStrike, // 攻撃中
+		kWarpAim, kWarpFire, kRetreat, kAim, kBurst, kPhaseShift, kDive, kComboGap,    // 次の攻撃までの間
 	};
 
 	//何をしてるか
-	Action action_ = Action::kDashReady;
+	Action action_ = Action::kChoose;
 
 	//何秒経ったか
 	// 現在の行動を開始してからの時間
@@ -245,6 +269,56 @@ private:
 	bool IsVulnerable() const;
 
 	bool defeatVisible_ = false;
+
+
+	void ChooseAction();
+    bool overdrive_ = false, diveNext_ = false;
+    Vector3 target_{}, start_{};
+    bool secondForm_ = false;
+    enum class WarpArt { Lane, Pillar };
+    WarpArt warpArt_=WarpArt::Lane;
+    int volley_=0;
+    bool rightPad_=false;
+    AABB warpArea_{};
+    WorldTransform warpCore_;
+    void BeginWarp(WarpArt art);
+    void AimWarp();
+    void UpdateWarp();
+    unsigned pattern_ = 0;
+    float previousX_ = 0.f;
+    Vector3 retreat_{};
+    std::array<WorldTransform,4> outline_;
+    bool ShowRange() const;
+    AABB BurstBox() const;
+    ObjectColor warningColor_;
+    void LockTarget();
+    void UpdateWarning();
+	void UpdateMove();
+
+	// 突進を再使用できるまでの残り秒数
+	float dashCooldown_ = 0.0f;
+
+	// 移動直後か。移動だけを繰り返すことを防ぐ
+	bool movedLast_ = false;
+
+	// 弾幕を選んだ回数。追尾弾の連続使用を抑える
+	int shotCount_ = 0;
+
+	void UpdateApproach();
+	void UpdateComboReady();
+	void UpdateComboStrike();
+	void UpdateComboGap();
+
+	int comboIndex_ = 0;          // 0：1撃目、1：2撃目、2：3撃目
+	float comboDirection_ = 1.0f; // 攻撃開始時に固定する方向
+
+	static constexpr float kApproachSpeed = 6.0f; // 1秒の移動量
+	static constexpr float kComboDistance = 2.0f;
+
+	// 外部の当たり判定処理から確認するための公開関数
+
+	// 現在の一撃で、ダメージ・回避の判定を済ませたか
+	bool comboContactResolved_ = false;
 
 };
 

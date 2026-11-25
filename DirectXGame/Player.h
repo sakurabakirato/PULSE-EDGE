@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "DeathParticles.h"
 #include "KamataEngine.h"
 #include "MapChipField.h"
 #include "Math.h"
@@ -17,7 +18,10 @@ class Boss;
 
 class Player 
 {
+private:
+    DeathParticles *dodgeFx_=nullptr, *impactFx_=nullptr;
 public:
+    void SetCombatParticles(DeathParticles* a, DeathParticles* b){ dodgeFx_=a; impactFx_=b; }
 
 	//デストラクタ
 	~Player();
@@ -214,7 +218,8 @@ private:
 	static inline const float kTimeTurn = 0.3f;
 
 	// 接地状態フラグ
-	bool onGround_ = true;
+	float stagger_=0.f, recoil_=0.f;
+    bool onGround_ = true;
 
 	// 現在のジャンプ回数（地上と空中で合計2回まで）
 	int jumpCount_ = 0;

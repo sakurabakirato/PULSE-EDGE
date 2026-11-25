@@ -12,7 +12,9 @@ void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipF
 	assert(bulletModel);
 	assert(player);
 
-	model_ = model;
+	for(auto& edge:outline_) edge.Initialize(); warpCore_.Initialize(); rightPad_=false; secondForm_=false; pattern_=0; warningColor_.Initialize();
+    overdrive_ = diveNext_ = false;
+    model_ = model;
 	camera_ = camera;
 	mapChipField_ = mapChipField;
 	bulletModel_ = bulletModel;
@@ -70,7 +72,16 @@ void Boss::Initialize(Model* model, Model* bulletModel, Camera* camera, MapChipF
 	for (auto& color : introShockColors_) { color.Initialize(); }
 	// 待機中も最初のフレームから正しい位置で描画する。
 	UpdateIntroMatrix();
-	//ChangeAction(Action::kDashReady);
+	
+	dashCooldown_ = 0.0f;
+	movedLast_ = false;
+	shotCount_ = 0;
+
+	behavior = Behavior::kWalk;
+	behaviorRequest = Behavior::kUnknown;
+	isCollisionDisabled = false;
+
+	ChangeAction(Action::kChoose);
 
 	defeatVisible_ = false;
 
@@ -274,20 +285,7 @@ void Boss::Attack()
 		}
 	}
 
-	// 4.狙い撃ち連射
-	if (attackType_ == 3)
-	{
-		attackType_ = 0;
-	}
 
-
-	// 次の攻撃へ進める
-	attackType_++;
-
-	if (attackType_ >= 4)
-	{
-		attackType_ = 0;
-	}
 }
 
 void Boss::ChangeAction(Action next)
@@ -295,6 +293,12 @@ void Boss::ChangeAction(Action next)
 	action_ = next;
 	actionTimer_ = 0.0f;
 	velocity_ = {};
+
+	// 1撃目・2撃目・3撃目それぞれの開始時にリセット
+	if (action_ == Action::kComboStrike)
+	{
+		previousX_=worldTransform_.translation_.x; comboContactResolved_ = false;
+	}
 
 	// 予備動作に入った瞬間だけ、突進方向を決める
 	if (action_ == Action::kDashReady)
@@ -319,8 +323,52 @@ void Boss::UpdateAction()
 {
 	actionTimer_ += kDeltaTime;
 
+	dashCooldown_ =
+		(std::max)(0.0f, dashCooldown_ - kDeltaTime);
+
 	switch (action_)
 	{
+	case Action::kWarpAim: case Action::kWarpFire: UpdateWarp(); break;
+    case Action::kRetreat:{
+        float t=(std::min)(1.f,actionTimer_/.23f);
+        auto& p=worldTransform_.translation_;
+        p.x=start_.x+(retreat_.x-start_.x)*t; p.y=start_.y+(retreat_.y-start_.y)*t+std::sin(t*3.14159f);
+        if(t>=1.f){LockTarget(); ChangeAction(Action::kAim);} break;}
+    case Action::kAim:
+        if(actionTimer_ >= (secondForm_?.42f:.55f)){ChangeAction(Action::kBurst);comboContactResolved_=false;}break;
+    case Action::kBurst:
+        if(actionTimer_>=.16f)ChangeAction(Action::kRecovery); break;
+    case Action::kPhaseShift:
+        if(UpdateIntroPose()){ secondForm_=true; hp_=kMaxHp; if(phaseFx_) phaseFx_->Emit(DeathParticles::Effect::Release,worldTransform_.translation_); overdrive_=true; pattern_=0; ChangeAction(Action::kChoose); }
+        break;
+    case Action::kDive:{
+        auto& p=worldTransform_.translation_;
+        float t=(std::min)(1.f,actionTimer_/.55f);
+        p.x=start_.x+(target_.x-start_.x)*t;
+        float peak=(std::max)(start_.y,target_.y)+3.f;
+        p.y=start_.y+(peak-start_.y)*t;
+        if(actionTimer_>.75f){float v=(std::min)(1.f,(actionTimer_-.75f)/.2f);p.y=peak+(target_.y-peak)*v*v;}
+        if(actionTimer_>=.96f){
+            for(int sign : {-1,1}){ bullets_.emplace_back(); auto& w=bullets_.back(); w.worldTransform.Initialize(); w.worldTransform.translation_=p; w.worldTransform.scale_={.45f,.24f,.25f}; w.velocity.x=sign*.18f; }
+            ChangeAction(Action::kRecovery);
+        }
+        break;}
+    case Action::kChoose:
+		ChooseAction();
+		break;
+
+	case Action::kMove:
+		UpdateMove();
+		break;
+
+	case Action::kShootReady:
+		if (actionTimer_ >= 0.6f)
+		{
+			Attack();
+			ChangeAction(Action::kRecovery);
+		}
+		break;
+
 	case Action::kDashReady:
 		UpdateDashReady();
 		break;
@@ -332,13 +380,28 @@ void Boss::UpdateAction()
 	case Action::kRecovery:
 		UpdateRecovery();
 		break;
+	case Action::kApproach:
+		UpdateApproach();
+		break;
+
+	case Action::kComboReady:
+		UpdateComboReady();
+		break;
+
+	case Action::kComboStrike:
+		UpdateComboStrike();
+		break;
+
+	case Action::kComboGap:
+		UpdateComboGap();
+		break;
 	}
 }
 
 void Boss::UpdateDashReady()
 {
 	// この段階では移動しない。
-   // 構える姿勢などの表示演出も、後でここに対応させる。
+    // 構える姿勢などの表示演出も、後でここに対応させる。
 
 	if (actionTimer_ >= kDashReadyTime)
 	{
@@ -365,12 +428,10 @@ void Boss::UpdateDash()
 
 void Boss::UpdateRecovery()
 {
-	// この間もダメージは受け付ける。
-    // 移動と新しい攻撃は行わない。
-
 	if (actionTimer_ >= kRecoveryTime)
 	{
-		ChangeAction(Action::kDashReady);
+		// 突進を繰り返すのではなく、状況を再確認
+		ChangeAction(Action::kChoose);
 	}
 }
 
@@ -385,9 +446,6 @@ void Boss::Update()
 
 	// 被弾演出の時間を更新
 	UpdateHitReaction();
-
-	// 現在の行動を更新
-	/*UpdateAction();*/
 
 	// 振る舞いの変更
 	if (behaviorRequest != Behavior::kUnknown)
@@ -410,100 +468,11 @@ void Boss::Update()
 	switch (behavior)
 	{
 	case Behavior::kWalk:
-		if (moveWaitTimer_ > 0.0f)
-		{
-			moveWaitTimer_ -= 1.0f / 60.0f;
 
-			// 到着してから約0.5秒後に1回だけ攻撃
-			if (moveWaitTimer_ <= 3.5f)
-			{
-				if (!attackDone_)
-				{
-					Attack();
-					attackDone_ = true;
-				}
-			}
+		UpdateAction();
+        if(ShowRange()) UpdateWarning();
 
-			if (moveWaitTimer_ < 0.0f)
-			{
-				moveWaitTimer_ = 0.0f;
-			}
-		}
-		else
-		{
-			Vector3 targetPosition =
-				movePositions_[movePositionIndex_];
-
-			Vector3 difference = {};
-
-			difference.x =
-				targetPosition.x - worldTransform_.translation_.x;
-
-			difference.y =
-				targetPosition.y - worldTransform_.translation_.y;
-
-			difference.z =
-				targetPosition.z - worldTransform_.translation_.z;
-
-			float distance = std::sqrt(
-				difference.x * difference.x +
-				difference.y * difference.y +
-				difference.z * difference.z);
-
-			// 移動先へ到着
-			if (distance <= kWalkSpeed)
-			{
-				worldTransform_.translation_ = targetPosition;
-				velocity_ = { 0.0f, 0.0f, 0.0f };
-
-				// 合計4秒間停止
-				moveWaitTimer_ = 4.0f;
-
-				// 次の待機中に攻撃できるようにする
-				attackDone_ = false;
-
-				// 次の移動先へ進める
-				movePositionIndex_++;
-
-				if (movePositionIndex_ >= 4)
-				{
-					movePositionIndex_ = 0;
-				}
-			} 
-			else
-			{
-				// 移動先の方向へ一定速度で移動
-				velocity_.x =
-					difference.x / distance * kWalkSpeed;
-
-				velocity_.y =
-					difference.y / distance * kWalkSpeed;
-
-				velocity_.z =
-					difference.z / distance * kWalkSpeed;
-
-				worldTransform_.translation_ += velocity_;
-
-				// ボスの向きを移動方向へ合わせる
-				if (velocity_.x > 0.0f)
-				{
-					isFacingRight_ = true;
-
-					worldTransform_.rotation_.y =
-						std::numbers::pi_v<float> / 2.0f;
-				} 
-				else if (velocity_.x < 0.0f)
-				{
-					isFacingRight_ = false;
-
-					worldTransform_.rotation_.y =
-						std::numbers::pi_v<float> *
-						3.0f / 2.0f;
-				}
-			}
-		}
 		break;
-
 	case Behavior::kDefeated:
 		counter += 1.0f / 60.0f;
 		worldTransform_.rotation_.y += 0.3f;
@@ -784,7 +753,7 @@ AABB Boss::GetAABB()
 void Boss::OnDamage(int amount, bool empowered)
 {
 	// 0以下のダメージや、撃破後の追加ヒットは受け付けない。
-	if (amount <= 0 || IsDead()) 
+	if (amount <= 0 || IsDead() || action_==Action::kPhaseShift) 
 	{
 		return; 
 	}
@@ -801,7 +770,10 @@ void Boss::OnDamage(int amount, bool empowered)
 	if (amount >= hp_)
 	{
 		hp_ = 0;
-		isDead = true;
+        if(!secondForm_){
+            bullets_.clear(); hitReactionTimer_=0; BeginIntroPose(); if(phaseFx_) phaseFx_->Emit(DeathParticles::Effect::Gather,worldTransform_.translation_); ChangeAction(Action::kPhaseShift); return;
+        }
+        isDead = true;
 		hitReactionTimer_ = 0.0f;
 		bullets_.clear();
 	}
@@ -828,7 +800,9 @@ void Boss::UpdateRenderTransform()
 	renderTransform_.scale_ = worldTransform_.scale_;
 	bodyColor_.SetColor({1.0f, 1.0f, 1.0f, 1.0f});
 
-	if (IsVulnerable() && hitReactionTimer_ <= 0.0f)
+	if(secondForm_) bodyColor_.SetColor({1.f,.2f,.6f,1.f});
+    if(action_==Action::kComboStrike){renderTransform_.rotation_.z=-comboDirection_*.3f; renderTransform_.scale_.x*=1.25f;}
+    if (IsVulnerable() && hitReactionTimer_ <= 0.0f)
 	{
 		bodyColor_.SetColor({ 1.0f, 0.8f, 0.1f, 1.0f });
 	}
@@ -894,6 +868,8 @@ void Boss::Draw()
 		model_->Draw(renderTransform_, *camera_, &bodyColor_);
 	} 
 
+	if(!IsDead() && action_==Action::kWarpFire) bulletModel_->Draw(warpCore_,*camera_,&warningColor_);
+    if(!IsDead() && ShowRange()) for(auto& e:outline_) bulletModel_->Draw(e,*camera_,&warningColor_);
 	for (Bullet& bullet : bullets_)
 	{
 		// 発射時刻になっていない弾は表示しない
@@ -965,7 +941,10 @@ bool Boss::UpdateIntroPose()
 			transform.TransferMatrix();
 		}
 	}
-	if (t >= kIntroPoseDuration) { EndIntroPose(); return true; }
+	if (t >= kIntroPoseDuration) 
+	{ 
+		EndIntroPose(); return true; 
+	}
 	return false;
 }
 
@@ -984,27 +963,247 @@ void Boss::EndIntroPose()
 
 void Boss::DrawIntroShockwaves()
 {
-	if (!introPoseActive_) { return; }
+	if (!introPoseActive_) 
+	{ 
+		return; 
+	}
 	Model::PreDraw(Model::CullingMode::kBack, Model::BlendMode::kNormal, Model::DepthTestMode::kReadOnly);
 	for (int wave = 0; wave < 2; ++wave)
 	{
-		if (!introShockVisible_[wave]) { continue; }
+		if (!introShockVisible_[wave]) 
+		{ 
+			continue; 
+		}
 		for (int i = 0; i < kShockSegments; ++i)
-		{ bulletModel_->Draw(introShockTransforms_[wave * kShockSegments + i], *camera_, &introShockColors_[wave]); }
+		{ 
+			bulletModel_->Draw(introShockTransforms_[wave * kShockSegments + i], *camera_, &introShockColors_[wave]); 
+		}
 	}
 	Model::PostDraw();
 }
 
+//後隙の判定
 bool Boss::IsVulnerable() const
 {
 	return !IsDead() &&
 		!introPoseActive_ &&
 		behavior == Behavior::kWalk &&
-		attackDone_ &&
-		moveWaitTimer_ > 0.0f &&
-		moveWaitTimer_ <= 1.0f;
+		action_ == Action::kRecovery;
 }
 
+bool Boss::IsAttack()
+{
+	return !IsDead() &&
+		!introPoseActive_ &&
+		action_ == Action::kDash;
+}
+
+/////////////////////////////////////////////ボスの動き////////////////////////////////////////////////////
+void Boss::ChooseAction()
+{
+	if(hp_*2<=kMaxHp) overdrive_=true;
+    LockTarget();
+    unsigned step=pattern_++ % (secondForm_?6u:2u);
+    if(secondForm_ && (step==0 || step==4)){BeginWarp(step==0?WarpArt::Lane:WarpArt::Pillar);return;}
+    if(overdrive_ && step==1){
+        retreat_=std::abs(target_.x-movePositions_[1].x)>std::abs(target_.x-movePositions_[2].x)?movePositions_[1]:movePositions_[2];
+        // Use the designated side, but stay within camera distance of the target.
+        retreat_.x=target_.x+(std::clamp)(retreat_.x-target_.x,-7.f,7.f);
+        retreat_.y=target_.y+2.f;
+        ChangeAction(Action::kRetreat); return;
+    }
+    if(secondForm_ && step==2){ ChangeAction(Action::kDive);return; }
+    comboIndex_ = 0;
+    ChangeAction(Action::kApproach);
+}
+
+// Alternate the two elevated firing positions. Lock each warning once.
+void Boss::BeginWarp(WarpArt art){
+    warpArt_=art; volley_=0;
+    rightPad_=!rightPad_;
+    worldTransform_.translation_=movePositions_[rightPad_?3:0];
+    AimWarp();
+}
+void Boss::AimWarp(){
+    auto b=worldTransform_.translation_;
+    auto p=player_->GetWorldPosition();
+    float dir=p.x>=b.x?1.f:-1.f;
+    worldTransform_.rotation_.y=dir*std::numbers::pi_v<float>*.5f;
+    float left=mapChipField_->GetRectByIndex(0,0).left;
+    float right=mapChipField_->GetRectByIndex(mapChipField_->GetNumBlockHorizontal()-1,0).right;
+    if(warpArt_==WarpArt::Lane){
+        float end=dir>0?right:left;
+        warpArea_={{(std::min)(end,b.x),p.y-.65f,b.z-.6f},{(std::max)(end,b.x),p.y+.65f,b.z+.6f}};
+    }else{
+        float x=p.x;
+        warpArea_={{x-1.65f,mapChipField_->GetRectByIndex(0,mapChipField_->GetNumBlockVirtical()-1).bottom,b.z-.6f},
+                   {x+1.65f,mapChipField_->GetRectByIndex(0,0).top,b.z+.6f}};
+    }
+    ChangeAction(Action::kWarpAim);
+}
+void Boss::UpdateWarp(){
+    if(action_==Action::kWarpAim){
+        if(actionTimer_ >= (volley_==0?.65f:.46f)){
+            comboContactResolved_=false;ChangeAction(Action::kWarpFire);
+        }
+    }else if(actionTimer_>=.18f){
+        if(++volley_ < (warpArt_==WarpArt::Lane?2:3)){AimWarp();}
+        else ChangeAction(Action::kRecovery);
+    }
+}
+void Boss::UpdateMove()
+{
+	const Vector3 target = movePositions_[movePositionIndex_];
+	const Vector3 b = worldTransform_.translation_;
+
+	const Vector3 d = 
+	{
+		target.x - b.x,
+		target.y - b.y,
+		target.z - b.z
+	};
+
+	const float length =
+		std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+
+	if (length <= kWalkSpeed)
+	{
+		worldTransform_.translation_ = target;
+		ChangeAction(Action::kChoose);
+		return;
+	}
+
+	velocity_ = 
+	{
+		d.x / length * kWalkSpeed,
+		d.y / length * kWalkSpeed,
+		d.z / length * kWalkSpeed
+	};
+
+	worldTransform_.translation_ += velocity_;
+
+	if (std::abs(d.x) > 0.001f)
+	{
+		isFacingRight_ = d.x > 0.0f;
+
+		worldTransform_.rotation_.y = isFacingRight_
+			? std::numbers::pi_v<float> / 2.0f
+			: std::numbers::pi_v<float> *1.5f;
+	}
+}
+
+//プレイヤーへ接近する
+void Boss::UpdateApproach()
+{
+	auto& pos = worldTransform_.translation_;
+    const float t = (std::min)(1.f, actionTimer_ / .38f);
+    pos.y = start_.y + (target_.y-start_.y)*t;
+    if(t >= 1.f) { LockTarget(); ChangeAction(Action::kComboReady); }
+}
+
+void Boss::LockTarget() {
+    start_ = worldTransform_.translation_;
+    target_ = player_->GetWorldPosition();
+    const auto col = mapChipField_->GetMapChipIndexSetByPosition(target_).xIndex;
+    float floor = -1.e5f;
+    if(col < mapChipField_->GetNumBlockHorizontal())
+    for(unsigned y=0;y<mapChipField_->GetNumBlockVirtical();++y){
+        if(mapChipField_->GetMapChipTypeByIndex(col,y)!=MapChipType::kBlock) continue;
+        const float top=mapChipField_->GetRectByIndex(col,y).top;
+        if(top<=target_.y+.05f) floor=(std::max)(floor,top);
+    }
+    target_.y = floor > -1.e4f ? floor + .42f : start_.y;
+    comboDirection_=target_.x>=start_.x?1.f:-1.f;
+    worldTransform_.rotation_.y=comboDirection_*std::numbers::pi_v<float>*.5f;
+}
+
+AABB Boss::BurstBox() const {
+    float w=secondForm_?2.6f:1.6f;
+    return {{target_.x-w,target_.y-.45f,target_.z-.5f},{target_.x+w,target_.y+2.f,target_.z+.5f}};
+}
+bool Boss::ShowRange() const {
+    return action_==Action::kWarpAim || action_==Action::kWarpFire || action_==Action::kAim || action_==Action::kBurst || action_==Action::kComboReady ||
+        action_==Action::kComboGap || action_==Action::kComboStrike || action_==Action::kDive;
+}
+void Boss::UpdateWarning(){
+    AABB box=BurstBox();
+    if(action_==Action::kWarpAim || action_==Action::kWarpFire) box=warpArea_;
+    else if(action_==Action::kComboStrike) box=GetComboAttackAABB();
+    else if(action_==Action::kDive){box.min.x=target_.x-.55f;box.max.x=target_.x+.55f;box.max.y=target_.y+.4f;}
+    else if(action_==Action::kComboReady || action_==Action::kComboGap){
+        float end=start_.x+comboDirection_*((std::max)(0.f,std::abs(target_.x-start_.x)-.65f)+2.2f);
+        box.min.x=(std::min)(start_.x,end);box.max.x=(std::max)(start_.x,end);
+        box.min.y=(std::min)(start_.y,target_.y)-.7f;box.max.y=(std::max)(start_.y,target_.y)+.7f;
+    }
+    float x=(box.max.x+box.min.x)*.5f,y=(box.max.y+box.min.y)*.5f;
+    if(action_==Action::kWarpFire){
+        auto& e=warpCore_;e.translation_={x,y,box.min.z};
+        e.scale_={(box.max.x-box.min.x)*.5f,(box.max.y-box.min.y)*.5f,.12f};
+        e.matWorld_=MakeAffineMatrix(e.scale_,e.rotation_,e.translation_);e.TransferMatrix();
+    }
+    warningColor_.SetColor(IsComboAttacking()?Vector4{1,.05f,.12f,1}:Vector4{1,.58f,.08f,1});
+    for(int i=0;i<4;++i){auto& e=outline_[i]; bool horiz=i<2;
+        e.translation_={horiz?x:(i==2?box.min.x:box.max.x),horiz?(i==0?box.min.y:box.max.y):y,box.min.z-.05f};
+        e.scale_={horiz?(box.max.x-box.min.x)*.5f:.04f,horiz?.04f:(box.max.y-box.min.y)*.5f,.04f};
+        e.matWorld_=MakeAffineMatrix(e.scale_,e.rotation_,e.translation_);e.TransferMatrix();}
+}
+void Boss::UpdateComboReady()
+{
+	// この間に発光や構えの演出を入れる
+	if (actionTimer_ >= 0.45f)
+	{
+		ChangeAction(Action::kComboStrike);
+	}
+}
+
+void Boss::UpdateComboStrike()
+{
+	auto& p=worldTransform_.translation_;
+    previousX_=p.x;
+    float t=(std::min)(1.f,actionTimer_/(secondForm_?.13f:.18f));
+    float distance=(std::max)(0.f,std::abs(target_.x-start_.x)-.65f);
+    p.x=start_.x+comboDirection_*distance*t;
+    p.y=start_.y+(target_.y-start_.y)*t;
+    if(actionTimer_ >= (secondForm_?.18f:.23f)){
+        if(secondForm_ && comboIndex_==0){++comboIndex_; LockTarget(); ChangeAction(Action::kComboGap);}
+        else ChangeAction(Action::kRecovery);
+    }
+}
+void Boss::UpdateComboGap(){ if(actionTimer_>=.35f) ChangeAction(Action::kComboStrike); }
+
+bool Boss::IsComboAttacking() const
+{
+	return !IsDead() &&
+		!introPoseActive_ &&
+		(action_ == Action::kComboStrike || action_==Action::kBurst || action_==Action::kWarpFire);
+}
+
+AABB Boss::GetComboAttackAABB() const
+{
+	if(action_==Action::kWarpFire) return warpArea_;
+    if(action_==Action::kBurst) return BurstBox();
+	const Vector3 b = worldTransform_.translation_;
+
+	const float reach = comboIndex_ == 2 ? 2.6f : 2.2f;
+	const float halfHeight = 0.7f;
+
+	// ボスの中心から、向いている側へ伸びる箱
+	const float endX = b.x + comboDirection_ * reach;
+
+	AABB box{};
+	box.min = {
+		(std::min)(previousX_, endX),
+		b.y - halfHeight,
+		b.z - 0.5f
+	};
+	box.max = {
+		(std::max)(previousX_, endX),
+		b.y + halfHeight,
+		b.z + 0.5f
+	};
+
+	return box;
+}
 
 
 

@@ -34,7 +34,8 @@ GameScene::~GameScene()
 	delete playerHpBarBack_;
 	delete debugCamera_;
 	delete model_;
-	delete blockModel_;
+	delete shardModel_;
+    delete blockModel_;
 	delete skydome_;
 	delete modelPlayer_;
 	delete player_;
@@ -137,6 +138,10 @@ void GameScene::Initialize()
 	Vector3 bossPosition = mapChipField_->GetMapChipPositionByIndex(50, 13);// 中央足場の上から出現
 	boss_->Initialize(modelBoss_, modelBossBullet_, &camera_, mapChipField_, player_, bossPosition);
 	player_->SetBoss(boss_);
+    shardModel_=Model::CreateFromOBJ("pulseShard");
+    for(auto* fx:{&dodgeFx_,&impactFx_,&phaseFx_}) fx->Prepare(shardModel_,&camera_);
+    player_->SetCombatParticles(&dodgeFx_,&impactFx_);
+    boss_->SetPhaseParticles(&phaseFx_);
 
 	InitializaHpBars();
 	InitializeGameOverUI();
@@ -222,6 +227,7 @@ void GameScene::GenerateBlocks()
 
 void GameScene::Update() 
 {
+    for(auto* fx:{&dodgeFx_,&impactFx_,&phaseFx_}) fx->Update();
 
 	switch (phase_) 
 	{
@@ -304,6 +310,9 @@ void GameScene::Draw()
 		player_->DrawAttackEffects();
 	}
 	boss_->DrawIntroShockwaves();
+    Model::PreDraw(Model::CullingMode::kBack,Model::BlendMode::kNormal,Model::DepthTestMode::kReadOnly);
+    for(auto* fx:{&dodgeFx_,&impactFx_,&phaseFx_}) fx->Draw();
+    Model::PostDraw();
 
 	Sprite::PreDraw(DirectXCommon::GetInstance()->GetCommandList());
 
@@ -400,27 +409,38 @@ void GameScene::DrawUI()
 }
 
 //自キャラとボスの当たり判定
-void GameScene::CheckAllCollisions() 
+void GameScene::CheckAllCollisions()
 {
-#pragma region 自キャラとボスの当たり判定
-	// ボスが死亡している場合は判定しない
-	if (boss_->IsDead())
+	if (!boss_ || !player_ || boss_->IsDead() || player_->IsDead())
 	{
 		return;
 	}
 
-	// プレイヤー本体とボス本体の当たり判定
-	AABB playerAABB = player_->GetAABB();
-	AABB bossAABB = boss_->GetAABB();
+	const AABB playerAABB = player_->GetAABB();
 
-	if (IsCollision(playerAABB, bossAABB))
+	// 連続攻撃：ボス本体ではなく、前方の攻撃判定を使う
+	if (boss_->IsComboAttacking())
+	{
+		if (boss_->CanResolveComboContact() && IsCollision(playerAABB, boss_->GetComboAttackAABB()))
+		{
+			// この一撃は判定済みにする
+			boss_->ResolveComboContact();
+
+			// 既存のダメージ・無敵・ジャスト回避処理を利用
+			player_->OnBulletCollision();
+		}
+	}
+	// 突進：ボス本体を攻撃判定として使う
+	else if (boss_->IsAttack() && IsCollision(playerAABB, boss_->GetAABB()))
 	{
 		player_->OnCollision(boss_);
 	}
 
-	// 命中判定と、一回の攻撃につき一度だけのダメージ処理
-	player_->TryHitBoss(boss_);
-#pragma endregion
+	// プレイヤーからボスへの攻撃
+	if (!player_->IsDead())
+	{
+		player_->TryHitBoss(boss_);
+	}
 }
 
 void GameScene::ChangePhase() 

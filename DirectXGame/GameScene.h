@@ -44,6 +44,8 @@ public:
 	bool IsReturnToTitleRequested() const { return returnToTitleRequested_; }
 
 private:
+    Model* shardModel_=nullptr;
+    DeathParticles dodgeFx_,impactFx_,phaseFx_;
 	bool returnToTitleRequested_ = false;
 	bool gameOverSpaceReady_ = false;
 	enum class IntroPhase { kPlayerEntry, kCameraToBoss, kBossPose, kCameraReturn };

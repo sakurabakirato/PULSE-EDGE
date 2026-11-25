@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "KamataEngine.h"
 #include "Math.h"
@@ -21,6 +21,10 @@ public:
         const Vector3& position,
         bool forBossClear = false);
 
+    enum class Effect { Dodge, Impact, Gather, Release };
+    // Prepare once, then reuse the same transforms and color buffer.
+    void Prepare(Model* shard, Camera* camera);
+    void Emit(Effect effect, Vector3 origin, float direction=1.f);
     void Update();
     void Draw();
 
@@ -30,6 +34,11 @@ public:
     }
 
 private:
+    bool combat_ = false;
+    Effect effect_ = Effect::Dodge;
+    Vector3 origin_{};
+    float direction_=1.f;
+    void PoseCombat();
     // 最大32個分を用意しておく。
     // 実際に何個使うかは、particleCount_で決める。
     static constexpr uint32_t kMaxParticles = 32;
